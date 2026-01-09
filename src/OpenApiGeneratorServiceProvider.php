@@ -11,6 +11,7 @@ use Ronu\OpenApiGenerator\Extractors\{
     ModelExtractor,
     ConfigExtractor
 };
+use Ronu\OpenApiGenerator\Services\OpenApiServices;
 use Ronu\OpenApiGenerator\Generators\{
     SmartDescriptionGenerator,
     RealisticExampleGenerator
@@ -89,7 +90,7 @@ class OpenApiGeneratorServiceProvider extends ServiceProvider
         
         // Register facade
         $this->app->singleton('openapi-generator', function ($app) {
-            return $app->make(OpenApiService::class);
+            return $app->make(OpenApiServices::class);
         });
     }
     
@@ -98,8 +99,8 @@ class OpenApiGeneratorServiceProvider extends ServiceProvider
      */
     protected function registerCoreServices(): void
     {
-        $this->app->singleton(OpenApiService::class, function ($app) {
-            return new OpenApiService(
+        $this->app->singleton(OpenApiServices::class, function ($app) {
+            return new OpenApiServices(
                 $app->make(MetadataOrchestrator::class),
                 $app->make(SmartDescriptionGenerator::class),
                 $app->make(RealisticExampleGenerator::class),
