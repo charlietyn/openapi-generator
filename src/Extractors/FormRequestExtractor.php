@@ -222,7 +222,7 @@ class FormRequestExtractor implements MetadataExtractorInterface
         if (preg_match($pattern, $content, $matches)) {
             // Find scenario within rules array
             $rulesContent = $matches[1];
-            $scenarioPattern = "/['\"]$scenario['\"]\s*=>\s*\[(.*?)\]/s";
+            $scenarioPattern = "/['\"]" . preg_quote($scenario, '/') . "['\"]\s*=>\s*\[(.*?)\],?\s*(?:['\"]|$)/s";
             
             if (preg_match($scenarioPattern, $rulesContent, $scenarioMatches)) {
                 return $this->parseRulesFromString($scenarioMatches[1]);

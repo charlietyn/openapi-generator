@@ -128,7 +128,7 @@ class GenerateOpenApiCommand extends Command
         }
         
         if (!empty($result['warnings'])) {
-            $this->warn("⚠️  Warnings ({count($result['warnings'])}):");
+            $this->warn("⚠️  Warnings ({count(".$result['warnings'].")}):");
             foreach (array_slice($result['warnings'], 0, 5) as $warning) {
                 $this->line("  • {$warning}");
             }
