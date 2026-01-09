@@ -1,0 +1,187 @@
+{
+    "summary": "User Authentication",
+    "description": "Authenticate user with email and password credentials.\n\nReturns a JWT token upon successful authentication that should be included\nin subsequent requests via the `Authorization: Bearer {token}` header.\n\n\n**Content-Type:** `application/json`\n\n**Required Fields:**\n- `email` (string) - Valid email address\n- `password` (string) - Minimum 8 characters\n\n**Optional Fields:**\n- `remember` (boolean) - Extends token validity to 30 days (default: false)\n\n**Example Request:**\n```json\n{\n  \"token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jY...\",\n  \"token_type\": \"bearer\",\n  \"expires_in\": 60,\n  \"refresh_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwO...\",\n  \"refresh_expires_in\": 65\n}\n```\n\n\nReturns authentication token and user information.\n\n**Response Fields:**\n- `token` - JWT token (include in Authorization header)\n- `token_type` - Always \"bearer\"\n- `expires_in` - Token validity in seconds (86400 = 24h)\n- `user` - User object with id, name, email, roles\n\n**Example:**\n```json\n{\n  \"token\": \"eyJ0eXAiOiJKV1QiLC...\",\n  \"token_type\": \"bearer\",\n  \"expires_in\": 86400,\n  \"user\": {\n    \"id\": 1,\n    \"name\": \"John Doe\",\n    \"email\": \"user@example.com\",\n    \"roles\": [\"admin\", \"user\"]\n  }\n}\n```\n\n\n**When:** Wrong email/password or account inactive\n**Action:** Verify credentials or check account status\n\n**When:** Missing fields or invalid format\n**Common Errors:**\n- \"The email field is required.\"\n- \"The email must be a valid email address.\"\n- \"The password must be at least 8 characters.\"\n\n**Example:**\n```json\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"email\": [\"The email must be a valid email address.\"]\n  }\n}\n```\n\n**When:** More than 5 attempts per minute\n**Action:** Wait 60 seconds before retry\n\n**When:** Unexpected error\n**Action:** Retry or contact support\n\n\nInclude the token in all authenticated requests:\n\n```\nAuthorization: Bearer eyJ0eXAiOiJKV1QiLC...\n```\n\n**Example (cURL):**\n```bash\ncurl -X GET https://api.example.com/api/users \\\n  -H \"Authorization: Bearer YOUR_TOKEN_HERE\" \\\n  -H \"Content-Type: application/json\"\n```\n\n**Example (JavaScript):**\n```javascript\nfetch('/api/users', {\n  headers: {\n    'Authorization': 'Bearer ' + token,\n    'Content-Type': 'application/json'\n  }\n});\n```\n\n\n- Passwords are validated against bcrypt hashes\n- Failed attempts are rate-limited (5 attempts per minute)\n- Standard tokens expire after 24 hours\n- Extended tokens (remember: true) expire after 30 days\n- Always use HTTPS in production\n\n\n**\"Invalid credentials\" but password is correct:**\n→ Check if account is activated (verification email)\n\n**\"Too many requests\":**\n→ Wait 60 seconds or contact support if locked out\n\n**Token not working:**\n→ Ensure \"Bearer \" prefix is in Authorization header\n\n**Token expired:**\n→ Use `/api/refresh` endpoint or re-authenticate\n\n\n- `POST /api/register` - Create new account\n- `POST /api/logout` - Invalidate token\n- `POST /api/refresh` - Refresh expired token\n- `POST /api/forgot-password` - Reset password\n",
+    "tags": [
+        "Authentication"
+    ],
+    "requestBody": {
+        "required": true,
+        "description": "User credentials",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "required": [
+                        "email",
+                        "password"
+                    ],
+                    "properties": {
+                        "email": {
+                            "type": "string",
+                            "format": "email",
+                            "description": "User email address",
+                            "example": "user@example.com"
+                        },
+                        "password": {
+                            "type": "string",
+                            "format": "password",
+                            "description": "User password (min 8 characters)",
+                            "minLength": 8,
+                            "example": "password123"
+                        },
+                        "remember": {
+                            "type": "boolean",
+                            "description": "Remember user session (extends token validity)",
+                            "default": false,
+                            "example": false
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "responses": {
+        "200": {
+            "description": "Authentication successful",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "token": {
+                                "type": "string",
+                                "description": "JWT access token",
+                                "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                            },
+                            "token_type": {
+                                "type": "string",
+                                "example": "bearer"
+                            },
+                            "expires_in": {
+                                "type": "integer",
+                                "description": "Token expiration time in seconds",
+                                "example": 86400
+                            },
+                            "user": {
+                                "type": "object",
+                                "description": "Authenticated user information",
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "John Doe"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "user@example.com"
+                                    },
+                                    "roles": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "admin",
+                                            "user"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0...",
+                        "token_type": "bearer",
+                        "expires_in": 86400,
+                        "user": {
+                            "id": 1,
+                            "name": "John Doe",
+                            "email": "user@example.com",
+                            "roles": [
+                                "admin",
+                                "user"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Invalid credentials",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Invalid credentials."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "422": {
+            "description": "Validation error",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "The given data was invalid."
+                            },
+                            "errors": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "The email field is required."
+                                        ]
+                                    },
+                                    "password": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "The password must be at least 8 characters."
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "429": {
+            "description": "Too many requests (rate limited)",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Too many login attempts. Please try again later."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal server error"
+        }
+    }
+}

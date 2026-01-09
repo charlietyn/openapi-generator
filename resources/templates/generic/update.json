@@ -1,0 +1,161 @@
+{
+    "summary": "Update __VAR:entity_singular__",
+    "description": "Update an existing __VAR:entity_singular__ record with new data.\n\n\n__VAR:table_description__\n\nThis endpoint modifies an existing __VAR:entity_singular__ resource in the database.\nIt validates the input data, updates only the provided fields, and returns\nthe complete updated resource including timestamps.\n\n\n**Use this endpoint to:**\n- Modify existing __VAR:entity_singular__ records\n- Update one or multiple fields at once\n- Validate changes before persistence\n- Trigger update events and notifications\n- Maintain update history (updated_at timestamp)\n\n\nThis endpoint typically supports **both** PUT and PATCH:\n\n- Replace entire resource\n- All fields required (except auto-generated)\n- Missing fields reset to defaults\n\n- Update only provided fields\n- Other fields remain unchanged\n- More flexible and safer\n\n**Best Practice:** Use PATCH for most updates.\n\n\n\nThe following validation rules apply when updating:\n\n__VAR:validation_description__\n\n**Updatable Fields:**\n__VAR:fillable_fields__\n\n**Note:** \n- Some fields may have different rules for updates vs creates\n- Unique fields validated against other records (excluding current)\n- Foreign key fields validated for existence\n\n\n**Note:** No specific validation rules defined.\n\n**Updatable Fields:**\n__VAR:fillable_fields__\n\n**Protected Fields:**\n- `id` - Cannot be changed\n- `created_at` - Automatically set on creation\n- `updated_at` - Automatically updated on save\n\n\n\n**Method:** PUT or PATCH (PATCH recommended)\n\n**URL Pattern:** `/api/__VAR:entity_url__/{id}`\n\n**Path Parameters:**\n- `id` (required) - Unique identifier of __VAR:entity_singular__ to update\n\n**Headers:**\n- `Authorization: Bearer {token}` - Authentication token (if protected)\n- `Content-Type: application/json` - JSON request body\n- `Accept: application/json` - Expected response format\n\n**Request Body:**\nSubmit JSON object with fields to update. Include only fields you want to change.\n\n**Partial Update Example (PATCH):**\n```json\n{\n  \"name\": \"New Name\",\n  \"status\": \"active\"\n}\n// Only name and status will be updated\n```\n\n**Full Update Example (PUT):**\n```json\n{\n  \"name\": \"New Name\",\n  \"description\": \"New Description\",\n  \"status\": \"active\",\n  \"category_id\": 5\n}\n// All fields provided, missing fields may be reset\n```\n\n\nReturns the complete updated __VAR:entity_singular__ with all fields.\n\n**Response Structure:**\n```json\n{\n  \"data\": {\n    \"id\": integer,\n    // ... all fields with updated values ...\n    \"created_at\": timestamp,\n    \"updated_at\": timestamp  // Updated to current time\n  },\n  \"message\": \"__VAR:entity_singular__ updated successfully\"\n}\n```\n\n**Key Points:**\n- Response wrapped in `data` key\n- Includes ALL fields (not just updated ones)\n- `updated_at` timestamp reflects update time\n- `created_at` remains unchanged\n- Optional success message\n- HTTP status code: **200 OK**\n\n\n\nReturned when the __VAR:entity_singular__ with specified ID is not found.\n\n**Common Causes:**\n- ID doesn't exist in database\n- Resource was deleted before update\n- Typo in URL parameter\n\n**Response:**\n```json\n{\n  \"message\": \"__VAR:entity_singular__ not found.\"\n}\n```\n\n**How to Handle:**\n- Verify resource exists before showing edit form\n- Redirect to list page\n- Show \"Resource no longer exists\" message\n\n**Prevention:**\n```javascript\n// Check existence before loading edit form\nconst exists = await check__VAR:entity_singular__Exists(id);\nif (!exists) {\n  navigate('/__VAR:entity_url__');\n}\n```\n\n\nReturned when input data fails validation rules.\n\n**Common Validation Errors:**\n- Invalid field format (email, URL, date)\n- Value outside allowed range (min/max)\n- Unique constraint violation (duplicate value)\n- Invalid enum/choice value\n- Required field missing (if using PUT)\n- Foreign key reference doesn't exist\n\n**Response Structure:**\n```json\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"field_name\": [\n      \"Error message 1\",\n      \"Error message 2\"\n    ]\n  }\n}\n```\n\n**How to Handle:**\n- Parse `errors` object\n- Display inline validation errors\n- Highlight invalid fields\n- Focus first invalid field\n- Don't retry without fixing errors\n\n**Example - Unique Constraint:**\n```json\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"email\": [\"The email has already been taken.\"]\n  }\n}\n```\n\n**Backend Validation (Laravel):**\n```php\n// Unique validation excluding current record\n'email' => 'required|email|unique:users,email,' . $id\n```\n\n\nReturned when token is missing or invalid.\n\n**Action Required:**\n- Redirect to login\n- Clear stored tokens\n- Request fresh authentication\n\n\nReturned when user lacks permission to update this resource.\n\n**Common Causes:**\n- User doesn't have update permission\n- Resource belongs to different organization\n- Account suspended\n- Resource locked for editing\n\n**Action Required:**\n- Show \"Access Denied\" message\n- Hide edit button for users without permission\n- Contact administrator\n\n\nReturned when resource was modified by another user since it was loaded.\n\n**Optimistic Locking Example:**\n```json\n{\n  \"message\": \"Resource was modified by another user. Please reload and try again.\",\n  \"current_version\": 5,\n  \"your_version\": 4\n}\n```\n\n**How to Handle:**\n- Show conflict message\n- Offer to reload and retry\n- Implement version field in updates\n\n\nUnexpected server error during update.\n\n**Common Causes:**\n- Database connection failure\n- Foreign key constraint violation\n- Disk space full\n- Application error\n\n**Action Required:**\n- Retry once after short delay\n- Show generic error message\n- Log error details\n- Contact support if persists\n\n\n\n```javascript\nasync function update__VAR:entity_singular__(id, data) {\n  try {\n    const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n      method: 'PATCH',  // Use PATCH for partial update\n      headers: {\n        'Content-Type': 'application/json',\n        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,\n        'Accept': 'application/json'\n      },\n      body: JSON.stringify(data)\n    });\n    \n    if (response.ok) {\n      const result = await response.json();\n      console.log('✅ Updated:', result.data);\n      return result.data;\n    }\n    \n    if (response.status === 404) {\n      console.error('❌ __VAR:entity_singular__ not found');\n      alert('__VAR:entity_singular__ no longer exists');\n      return null;\n    }\n    \n    if (response.status === 422) {\n      const errors = await response.json();\n      console.error('❌ Validation failed:', errors.errors);\n      displayValidationErrors(errors.errors);\n      return null;\n    }\n    \n    throw new Error(`HTTP ${response.status}`);\n    \n  } catch (error) {\n    console.error('Error updating __VAR:entity_singular__:', error);\n    alert('Failed to update __VAR:entity_singular__');\n    return null;\n  }\n}\n\n// Usage - Update single field\nconst updated = await update__VAR:entity_singular__(123, {\n  status: 'active'\n});\n\n// Usage - Update multiple fields\nconst updated = await update__VAR:entity_singular__(123, {\n  name: 'New Name',\n  description: 'New Description',\n  status: 'active'\n});\n```\n\n\n```javascript\nimport { useState, useEffect } from 'react';\nimport { useParams, useNavigate } from 'react-router-dom';\n\nfunction Edit__VAR:entity_singular__Form() {\n  const { id } = useParams();\n  const navigate = useNavigate();\n  const [formData, setFormData] = useState({});\n  const [originalData, setOriginalData] = useState({});\n  const [errors, setErrors] = useState({});\n  const [loading, setLoading] = useState(false);\n  const [saving, setSaving] = useState(false);\n  \n  // Load existing data\n  useEffect(() => {\n    loadData();\n  }, [id]);\n  \n  const loadData = async () => {\n    setLoading(true);\n    \n    try {\n      const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n        headers: {\n          'Authorization': `Bearer __JSON:token__`\n        }\n      });\n      \n      if (response.ok) {\n        const result = await response.json();\n        setFormData(result.data);\n        setOriginalData(result.data);\n      } else if (response.status === 404) {\n        alert('__VAR:entity_singular__ not found');\n        navigate('/__VAR:entity_plural__');\n      }\n    } finally {\n      setLoading(false);\n    }\n  };\n  \n  const handleSubmit = async (e) => {\n    e.preventDefault();\n    setSaving(true);\n    setErrors({});\n    \n    // Send only changed fields\n    const changes = {};\n    Object.keys(formData).forEach(key => {\n      if (formData[key] !== originalData[key]) {\n        changes[key] = formData[key];\n      }\n    });\n    \n    // Check if anything changed\n    if (Object.keys(changes).length === 0) {\n      alert('No changes detected');\n      setSaving(false);\n      return;\n    }\n    \n    try {\n      const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n        method: 'PATCH',\n        headers: {\n          'Content-Type': 'application/json',\n          'Authorization': `Bearer __JSON:token__`\n        },\n        body: JSON.stringify(changes)\n      });\n      \n      if (response.ok) {\n        const result = await response.json();\n        alert('__VAR:entity_singular__ updated successfully!');\n        navigate(`/__VAR:entity_plural__/__JSON:id__`);\n      } else if (response.status === 422) {\n        const data = await response.json();\n        setErrors(data.errors);\n      } else if (response.status === 404) {\n        alert('__VAR:entity_singular__ was deleted');\n        navigate('/__VAR:entity_plural__');\n      } else {\n        throw new Error('Failed to update');\n      }\n    } catch (error) {\n      alert('Error: ' + error.message);\n    } finally {\n      setSaving(false);\n    }\n  };\n  \n  const handleChange = (field, value) => {\n    setFormData({ ...formData, [field]: value });\n    // Clear error when user starts typing\n    if (errors[field]) {\n      setErrors({ ...errors, [field]: undefined });\n    }\n  };\n  \n  if (loading) {\n    return <div>Loading...</div>;\n  }\n  \n  return (\n    <form onSubmit={handleSubmit}>\n      <h1>Edit __VAR:entity_singular__</h1>\n      \n      {/* Form fields */}\n      <div className=\"field\">\n        <label>Name</label>\n        <input\n          type=\"text\"\n          value={formData.name || ''}\n          onChange={(e) => handleChange('name', e.target.value)}\n          className={errors.name ? 'error' : ''}\n        />\n        {errors.name && (\n          <span className=\"error-message\">\n            {errors.name.join(', ')}\n          </span>\n        )}\n      </div>\n      \n      {/* More fields... */}\n      \n      {/* Show changed fields */}\n      {Object.keys(formData).some(k => formData[k] !== originalData[k]) && (\n        <div className=\"changes-indicator\">\n          Unsaved changes detected\n        </div>\n      )}\n      \n      <div className=\"actions\">\n        <button type=\"submit\" disabled={saving}>\n          {saving ? 'Saving...' : 'Save Changes'}\n        </button>\n        <button type=\"button\" onClick={() => navigate(`/__VAR:entity_plural__/__JSON:id__`)}>\n          Cancel\n        </button>\n      </div>\n    </form>\n  );\n}\n```\n\n\n```javascript\nimport { ref, computed, onMounted } from 'vue';\nimport { useRoute, useRouter } from 'vue-router';\n\nexport function useEdit__VAR:entity_singular__() {\n  const route = useRoute();\n  const router = useRouter();\n  const formData = ref({});\n  const originalData = ref({});\n  const errors = ref({});\n  const loading = ref(false);\n  const saving = ref(false);\n  \n  const hasChanges = computed(() => {\n    return Object.keys(formData.value).some(\n      key => formData.value[key] !== originalData.value[key]\n    );\n  });\n  \n  const load = async (id) => {\n    loading.value = true;\n    \n    try {\n      const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n        headers: {\n          'Authorization': `Bearer ${localStorage.getItem('token')}`\n        }\n      });\n      \n      if (response.ok) {\n        const result = await response.json();\n        formData.value = { ...result.data };\n        originalData.value = { ...result.data };\n      } else if (response.status === 404) {\n        alert('__VAR:entity_singular__ not found');\n        router.push('/__VAR:entity_plural__');\n      }\n    } finally {\n      loading.value = false;\n    }\n  };\n  \n  const save = async () => {\n    saving.value = true;\n    errors.value = {};\n    \n    // Get only changed fields\n    const changes = {};\n    Object.keys(formData.value).forEach(key => {\n      if (formData.value[key] !== originalData.value[key]) {\n        changes[key] = formData.value[key];\n      }\n    });\n    \n    if (Object.keys(changes).length === 0) {\n      alert('No changes to save');\n      saving.value = false;\n      return false;\n    }\n    \n    try {\n      const response = await fetch(`/api/__VAR:entity_url__/${route.params.id}`, {\n        method: 'PATCH',\n        headers: {\n          'Content-Type': 'application/json',\n          'Authorization': `Bearer ${localStorage.getItem('token')}`\n        },\n        body: JSON.stringify(changes)\n      });\n      \n      if (response.ok) {\n        const result = await response.json();\n        router.push(`/__VAR:entity_plural__/${route.params.id}`);\n        return true;\n      } else if (response.status === 422) {\n        const data = await response.json();\n        errors.value = data.errors;\n        return false;\n      } else {\n        alert('Failed to save');\n        return false;\n      }\n    } finally {\n      saving.value = false;\n    }\n  };\n  \n  onMounted(() => {\n    if (route.params.id) {\n      load(route.params.id);\n    }\n  });\n  \n  return {\n    formData,\n    errors,\n    loading,\n    saving,\n    hasChanges,\n    load,\n    save\n  };\n}\n```\n\n\n```bash\ncurl -X PATCH https://api.example.com/api/__VAR:entity_url__/123 \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"name\": \"Updated Name\",\n    \"status\": \"active\"\n  }'\n\ncurl -X PUT https://api.example.com/api/__VAR:entity_url__/123 \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"name\": \"Updated Name\",\n    \"description\": \"Updated Description\",\n    \"status\": \"active\",\n    \"category_id\": 5\n  }'\n\n{\n  \"data\": {\n    \"id\": 123,\n    \"name\": \"Updated Name\",\n    \"status\": \"active\",\n    \"created_at\": \"2024-01-01T00:00:00Z\",\n    \"updated_at\": \"2024-12-29T10:00:00Z\"\n  },\n  \"message\": \"__VAR:entity_singular__ updated successfully\"\n}\n\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"name\": [\"The name field is required.\"],\n    \"email\": [\"The email has already been taken.\"]\n  }\n}\n\n{\n  \"message\": \"__VAR:entity_singular__ not found.\"\n}\n```\n\n\n```php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Http\\Requests\\Update__VAR:entity_singular__Request;\nuse App\\Models\\__VAR:entity_singular__;\nuse Illuminate\\Http\\JsonResponse;\n\nclass __VAR:entity_singular__Controller extends Controller\n{\n    /**\n     * Update __VAR:entity_singular__\n     */\n    public function update(\n        Update__VAR:entity_singular__Request $request,\n        int $id\n    ): JsonResponse {\n        // Find resource\n        $__VAR:entity_singular__ = __VAR:entity_singular__::find($id);\n        \n        // Check if exists\n        if (!$__VAR:entity_singular__) {\n            return response()->json([\n                'message' => '__VAR:entity_singular__ not found.'\n            ], 404);\n        }\n        \n        // Authorization check\n        $this->authorize('update', $__VAR:entity_singular__);\n        \n        // Validation automatically handled by FormRequest\n        $validated = $request->validated();\n        \n        // Update resource\n        $__VAR:entity_singular__->update($validated);\n        \n        // Reload to get updated timestamps\n        $__VAR:entity_singular__->refresh();\n        \n        // Load relationships if needed\n        $__VAR:entity_singular__->load(['relation1', 'relation2']);\n        \n        // Return response\n        return response()->json([\n            'data' => $__VAR:entity_singular__,\n            'message' => '__VAR:entity_singular__ updated successfully'\n        ]);\n    }\n}\n\n// FormRequest with unique validation excluding current record\nclass Update__VAR:entity_singular__Request extends FormRequest\n{\n    public function rules()\n    {\n        $__VAR:entity_singular__Id = $this->route('id');\n        \n        return [\n            'name' => 'required|string|max:255',\n            'email' => \"required|email|unique:__VAR:entity_plural__,email,{$__VAR:entity_singular__Id}\",\n            'status' => 'required|in:active,inactive',\n        ];\n    }\n}\n```\n\n\n```python\nimport requests\n\ndef update___VAR:entity_singular__(id, data, token):\n    \"\"\"Update __VAR:entity_singular__\"\"\"\n    url = f'https://api.example.com/api/__VAR:entity_url__/{id}'\n    headers = {\n        'Authorization': f'Bearer {token}',\n        'Content-Type': 'application/json',\n        'Accept': 'application/json'\n    }\n    \n    try:\n        response = requests.patch(url, json=data, headers=headers)\n        \n        if response.status_code == 200:\n            result = response.json()\n            print(f\"✅ Updated: {result['data']['id']}\")\n            return result['data']\n        \n        elif response.status_code == 422:\n            errors = response.json()['errors']\n            print(f\"❌ Validation errors: {errors}\")\n            return None\n        \n        elif response.status_code == 404:\n            print(f\"❌ __VAR:entity_singular__ {id} not found\")\n            return None\n        \n        else:\n            print(f\"❌ Error: {response.status_code}\")\n            return None\n            \n    except Exception as e:\n        print(f\"Exception: {e}\")\n        return None\n\nupdated = update___VAR:entity_singular__(123, {\n    'name': 'New Name',\n    'status': 'active'\n}, 'your-token')\n```\n\n\n\n**Protect Against Mass Assignment:**\n```php\n// Define fillable fields in model\nprotected $fillable = ['name', 'description', 'status'];\n\n// Or guarded fields\nprotected $guarded = ['id', 'created_at', 'updated_at'];\n```\n\n**Never allow:**\n```php\n// ❌ DANGEROUS - allows any field\n$__VAR:entity_singular__->update($request->all());\n\n// ✅ SAFE - only validated fields\n$__VAR:entity_singular__->update($request->validated());\n```\n\n\n**Check Permission:**\n```php\n$this->authorize('update', $__VAR:entity_singular__);\n```\n\n**Ownership Check:**\n```php\nif ($__VAR:entity_singular__->user_id !== auth()->id()) {\n    abort(403, 'Unauthorized');\n}\n```\n\n\n**Prevent Lost Updates:**\n```php\n// Add version field to table\nSchema::table('__VAR:entity_plural__', function($table) {\n    $table->integer('version')->default(0);\n});\n\n// Check version on update\nif ($request->version != $__VAR:entity_singular__->version) {\n    return response()->json([\n        'message' => 'Resource was modified. Please reload.',\n        'current_version' => $__VAR:entity_singular__->version\n    ], 409);\n}\n\n// Increment version on save\n$__VAR:entity_singular__->increment('version');\n```\n\n\n**Track Changes:**\n```php\nLog::info('__VAR:entity_singular__ updated', [\n    'id' => $__VAR:entity_singular__->id,\n    'user_id' => auth()->id(),\n    'changes' => $__VAR:entity_singular__->getChanges()\n]);\n```\n\n\n\n**Symptom:**\n```json\n{\n  \"errors\": {\n    \"email\": [\"The email has already been taken.\"]\n  }\n}\n```\n\n**Cause:** Email exists in another record\n\n**Solution:**\n```php\n// Exclude current record from unique check\n'email' => \"unique:users,email,{$userId}\"\n```\n\n\n**Causes:**\n1. Field not in `$fillable` array\n2. Database transaction rolled back\n3. Event listener preventing save\n\n**Debug:**\n```php\n// Check fillable fields\ndd($__VAR:entity_singular__->getFillable());\n\n// Check what changed\ndd($__VAR:entity_singular__->getChanges());\n\n// Check dirty fields before save\ndd($__VAR:entity_singular__->getDirty());\n```\n\n\n**Symptom:** User A's changes overwrite User B's changes\n\n**Solution:** Implement optimistic locking (see Security section)\n\n\n**Cause:** Database constraint not in validation\n\n**Solution:**\n```php\ntry {\n    $__VAR:entity_singular__->update($data);\n} catch (\\Illuminate\\Database\\QueryException $e) {\n    if ($e->errorInfo[1] == 1062) {\n        return response()->json([\n            'message' => 'Duplicate entry detected'\n        ], 422);\n    }\n    throw $e;\n}\n```\n\n\n\n1. **Send Only Changed Fields**\n```javascript\nconst changes = {};\nObject.keys(formData).forEach(key => {\n  if (formData[key] !== originalData[key]) {\n    changes[key] = formData[key];\n  }\n});\nawait updateItem(id, changes);\n```\n\n2. **Confirm Before Discard**\n```javascript\nconst hasUnsavedChanges = () => {\n  return JSON.stringify(formData) !== JSON.stringify(originalData);\n};\n\nwindow.addEventListener('beforeunload', (e) => {\n  if (hasUnsavedChanges()) {\n    e.preventDefault();\n    e.returnValue = '';\n  }\n});\n```\n\n3. **Reload After Save**\n```javascript\nawait updateItem(id, data);\nconst fresh = await fetchItem(id);  // Get fresh data with new timestamp\nsetFormData(fresh);\n```\n\n4. **Disable Submit While Saving**\n```javascript\n<button disabled={saving || !hasChanges}>\n  {saving ? 'Saving...' : 'Save Changes'}\n</button>\n```\n\n\n1. **Use FormRequest Validation**\n```php\npublic function update(Update__VAR:entity_singular__Request $request, $id)\n```\n\n2. **Use Route Model Binding**\n```php\npublic function update(Request $request, __VAR:entity_singular__ $__VAR:entity_singular__)\n{\n    // Auto 404 if not found\n}\n```\n\n3. **Fire Events**\n```php\nevent(new __VAR:entity_singular__Updated($__VAR:entity_singular__));\n```\n\n4. **Use Database Transactions**\n```php\nDB::transaction(function() use ($__VAR:entity_singular__, $data) {\n    $__VAR:entity_singular__->update($data);\n    $__VAR:entity_singular__->relations()->sync($relatedIds);\n});\n```\n",
+    "tags": [
+        "__VAR:module__"
+    ],
+    "parameters": [
+        {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique identifier of the __VAR:entity_singular__ to update.\nMust be a valid integer that exists in the database.\n",
+            "schema": {
+                "type": "integer",
+                "example": 1
+            }
+        }
+    ],
+    "requestBody": {
+        "required": true,
+        "description": "JSON object containing fields to update.\n\n**For PATCH:** Include only fields you want to change.\n**For PUT:** Include all fields (full replacement).\n\n**Updatable Fields:**\n__VAR:fillable_fields__\n",
+        "content": {
+            "application/json": {
+                "schema": "__JSON:request_schema__",
+                "example": "__JSON:request_example__"
+            }
+        }
+    },
+    "responses": {
+        "200": {
+            "description": "__VAR:entity_singular__ updated successfully.\n\nReturns complete resource with updated values and new timestamp.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "data": "__JSON:model_schema__",
+                            "message": {
+                                "type": "string",
+                                "example": "__VAR:entity_singular__ updated successfully"
+                            }
+                        }
+                    },
+                    "example": {
+                        "data": "__JSON:response_example__",
+                        "message": "__VAR:entity_singular__ updated successfully"
+                    }
+                }
+            }
+        },
+        "404": {
+            "description": "__JSON:entity_singular__ not found.\n\nResource with specified ID doesn't exist or was deleted.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "__VAR:entity_singular__ not found."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "422": {
+            "description": "Validation error - Invalid input data.\n\nReturns detailed validation errors for each invalid field.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "The given data was invalid."
+                            },
+                            "errors": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "message": "The given data was invalid.",
+                        "errors": "__JSON:validation_errors_example__"
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Unauthorized - Authentication required.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Unauthenticated."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "403": {
+            "description": "Forbidden - Permission denied.\n\nUser authenticated but lacks permission to update this resource.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "This action is unauthorized."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "409": {
+            "description": "Conflict - Concurrent modification detected.\n\nResource was modified by another user since it was loaded.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Resource was modified. Please reload and try again."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal Server Error.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Error updating __VAR:entity_singular__."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

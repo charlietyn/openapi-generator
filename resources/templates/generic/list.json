@@ -1,0 +1,212 @@
+{
+    "summary": "List __VAR:entity_plural__",
+    "description": "Retrieve a paginated list of __VAR:entity_plural__ with advanced querying capabilities.\n\n\n__VAR:table_description__\n\nThis endpoint provides a powerful query builder system that supports:\n- **Pagination** - Control page number and items per page\n- **Filtering** - Exact match (attr) and advanced operators (oper)\n- **Sorting** - Multiple fields with ascending/descending order\n- **Relations** - Eager load related data with dot notation\n- **Field Selection** - Optimize performance by selecting specific fields\n\n\n**Use this endpoint to:**\n- Display paginated tables/lists of __VAR:entity_plural__\n- Implement search and filter functionality\n- Load related data in a single request\n- Build data grids with sorting and pagination\n- Export filtered data sets\n\n\nThis endpoint supports **TWO methods** for maximum flexibility:\n\n\nUse GET for simple queries without body:\n```\nGET /api/__VAR:entity_url__?page=1&pagesize=15\n```\n\n**Limitations:**\n- No complex filtering\n- No relation loading\n- Basic pagination only\n\n\nUse PUT with JSON body for advanced querying:\n```\nPUT /api/__VAR:entity_url__\nContent-Type: application/json\n\n{\n   \"pagination\": {\"page\": 1, \"pagesize\": 15},\n   \"relations\": [\"relation1\", \"relation2\"],\n   \"attr\": {\"status\": active},\n   \"oper\": [...],\n   \"orderby\": [{\"created_at\":\"desc\"}]\n}\n```\n\n**Advantages:**\n- Full query builder power\n- Complex filtering\n- Relation loading\n- Multiple sorting\n\n\n\nLoad related data to avoid N+1 query problems.\n\n**Format:**\n```json\n{\n   \"relations\": [\"relation1\", \"relation2.nested\"]\n}\n```\n\n**Features:**\n- Use `\"all\"` to load all available relations\n- Dot notation for nested relations: `\"user.roles.permissions\"`\n- Supports deep nesting up to 3 levels\n\n\n**Available Relations for __VAR:entity_singular__:**\n\n__VAR:relations_description__\n\n**Examples:**\n```json\n// Load single relation\n relations: [relation_name]\n\n// Load multiple relations\n relations: __JSON:available_relations__\n\n// Load all relations\n relations: [all]\n\n// Nested relations\n relations: [\"relation1.nested\", ...]\n```\n\n\n**Note:** No relations are available for this entity.\n\n\n\nControl which page and how many items per page.\n\n**Format:**\n```\n pagination: {page: 1, pagesize: 15}\n```\n\n**Default Values:**\n- page: 1\n- pagesize: 15\n\n**Limits:**\n- page: minimum 1\n- pagesize: minimum 1, maximum 100\n\n**Examples:**\n```json\n// First page, 15 items\n pagination: {page: 1, pagesize: 15}\n\n// Second page, 25 items\n pagination: {page: 2, pagesize: 25}\n\n// Large page for export\n pagination: {page: 1, pagesize: 100}\n```\n\n\nChoose specific fields to return for performance optimization.\n\n**Format:**\n```\n select: [\"field1\", \"field2\", ...]\n```\n\n**Available Fields:**\n__VAR:available_fields__\n\n**Notes:**\n- Only applies to main table (not relations)\n- Empty array or null returns all fields\n- ID field always included\n- Reduces payload size\n\n**Examples:**\n```json\n// Select specific fields\n select: [\"id\", \"name\", \"email\"]\n\n// All fields (default)\n select: [] (empty = all fields)\n```\n\n\nFilter by exact field values with AND/OR logic.\n\n**Format:**\n```\n attr: {field: value, field2: [values]}\n```\n\n**Logic:**\n- Same field, multiple values → OR\n- Different fields → AND\n\n**Examples:**\n```json\n// Single condition\n attr: {status: active}\n\n// Multiple values (OR)\n attr: {status: [active, pending]}\n// WHERE status = 'active' OR status = 'pending'\n\n// Multiple fields (AND)\n attr: {status: active, type: premium}\n// WHERE status = 'active' AND type = 'premium'\n\n// Combined\n {\"attr\": {\n   \"status\": [active, pending],\n  \"type\": premium\n}}\n// WHERE (status = 'active' OR status = 'pending') AND type = 'premium'\n```\n\n\nBuild complex queries with comparison operators and nested conditions.\n\n**Operator Format:**\n```\n\"operator|field|value|case_sensitive\"\n```\n\n**Supported Operators:**\n- `=` - Equal\n- `!=` - Not equal\n- `<` - Less than\n- `>` - Greater than\n- `<=` - Less than or equal\n- `>=` - Greater than or equal\n- `like` - Pattern matching (use % wildcards)\n\n**Case Sensitivity:**\n- `0` - Case insensitive (default)\n- `1` - Case sensitive\n\n**Simple Examples:**\n```json\n// Single condition\n[{\"0\": \">|age|18|0\"}]\n// WHERE age > 18\n\n// Pattern matching\n[{\"0\": \"like|name|%John%|0\"}]\n// WHERE name LIKE '%John%'\n\n// Exact match (case sensitive)\n[{\"0\": \"=|code|ABC123|1\"}]\n// WHERE BINARY code = 'ABC123'\n```\n\n**Complex Queries with AND/OR:**\n```json\n// AND condition\n[\n  {\n     \"and\": [\n      {\"0\": \">|age|18|0\"},\n      {\"1\": \"=|status|active|0\"}\n    ]\n  }\n]\n// WHERE age > 18 AND status = 'active'\n\n// OR condition\n[\n  {\n     \"or\": [\n      {\"0\": \"like|name|%John%|0\"},\n      {\"1\": \"like|email|%john%|0\"}\n    ]\n  }\n]\n// WHERE name LIKE '%John%' OR email LIKE '%john%'\n\n// Nested AND/OR\n[\n  {\n     \"and\": [\n      {\n         \"or\": [\n          {\"0\": \"<|age|30|0\"},\n          {\"1\": \">|age|60|0\"}\n        ]\n      },\n      {\"2\": \"=|status|active|0\"}\n    ]\n  }\n]\n// WHERE (age < 30 OR age > 60) AND status = 'active'\n```\n\n**Relation Field Filtering:**\nUse dot notation to filter by relation fields:\n```json\n[{\"0\": \"like|user.name|%Admin%|0\"}]\n// WHERE users.name LIKE '%Admin%'\n```\n\n\nSort results by one or more fields.\n\n**Format:**\n```\n orderby: [field:direction, ...]\n```\n\n**Directions:**\n- `asc` - Ascending (A-Z, 0-9)\n- `desc` - Descending (Z-A, 9-0)\n\n**Examples:**\n```json\n// Single sort\n {\"orderby\": [{\"created_at\":\"desc\"}]}\n\n// Multiple sorts (applied in order)\n {\"orderby\": __JSON:orderby_examples__}\n\n// Default example\n {\"orderby\": __JSON:orderby_examples__}\n```\n\n\nReturns paginated data with metadata.\n\n**Response Structure:**\n```json\n{\n   \"data\": [\n    // Array of __VAR:entity_singular__ objects\n  ],\n   \"meta\": {\n    \"current_page\": 1,\n    \"from\": 1,\n    \"to\": 15,\n    \"per_page\": 15,\n    \"total\": 100,\n    \"last_page\": 7\n  },\n   \"links\": {\n    \"first\": \"https://api.example.com/__VAR:entity_plural__?page=1\",\n    \"last\": \"https://api.example.com/__VAR:entity_plural__?page=7\",\n    \"prev\": null,\n    \"next\": \"https://api.example.com/__VAR:entity_plural__?page=2\"\n  }\n}\n```\n\n**Response Fields:**\n- `data` - Array of __VAR:entity_plural__\n- `meta.current_page` - Current page number\n- `meta.from` - First item number in page\n- `meta.to` - Last item number in page\n- `meta.per_page` - Items per page\n- `meta.total` - Total items across all pages\n- `meta.last_page` - Total number of pages\n- `links.first` - URL to first page\n- `links.last` - URL to last page\n- `links.prev` - URL to previous page (null if first page)\n- `links.next` - URL to next page (null if last page)\n\n\n\n```javascript\nasync function fetch__VAR:entity_plural__(page = 1, pagesize = 15) {\n  try {\n    const response = await fetch('/api/__VAR:entity_url__', {\n      method: 'PUT',\n       headers: {\n        'Content-Type': 'application/json',\n        'Authorization': `Bearer __JSON:token__`,\n        'Accept': 'application/json'\n      },\n      body: JSON.stringify({\n         pagination: { page, pagesize },\n         orderby: __JSON:orderby_examples__\n      })\n    });\n\n    if (response.ok) {\n      const result = await response.json();\n      console.log(`✅ Loaded ${result.data.length} items`);\n      console.log(`📊 Page ${result.meta.current_page} of ${result.meta.last_page}`);\n      return result;\n    }\n\n    throw new Error(`HTTP ${response.status}`);\n\n  } catch (error) {\n    console.error('Error fetching __VAR:entity_plural__:', error);\n    return { data: [], meta: {} };\n  }\n}\n```\n\n\n```javascript\nimport { useState, useEffect } from 'react';\n\nfunction __VAR:entity_plural__List() {\n  const [items, setItems] = useState([]);\n  const [loading, setLoading] = useState(false);\n  const [pagination, setPagination] = useState({\n    current_page: 1,\n    last_page: 1,\n    total: 0\n  });\n\n  const [filters, setFilters] = useState({\n    search: '',\n    status: 'all',\n    page: 1\n  });\n\n  const loadItems = async () => {\n    setLoading(true);\n\n    try {\n      // Build query\n      const query = {\n         pagination: {\n          page: filters.page,\n          pagesize: 15\n        },\n         relations: ['relation1', 'relation2'],\n         orderby: __JSON:orderby_examples__\n      };\n\n      // Add filters\n      if (filters.search) {\n        query.oper = [\n          {\n             \"or\": [\n              {\"0\": `like|name|%${filters.search}%|0`},\n              {\"1\": `like|email|%${filters.search}%|0`}\n            ]\n          }\n        ];\n      }\n\n      if (filters.status !== 'all') {\n        query.attr = { status: filters.status };\n      }\n\n      const response = await fetch('/api/__VAR:entity_url__', {\n        method: 'PUT',\n         headers: {\n          'Content-Type': 'application/json',\n          'Authorization': `Bearer __JSON:token__`\n        },\n        body: JSON.stringify(query)\n      });\n\n      if (response.ok) {\n        const result = await response.json();\n        setItems(result.data);\n        setPagination(result.meta);\n      }\n    } catch (error) {\n      console.error(error);\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  useEffect(() => {\n    loadItems();\n  }, [filters]);\n\n  return (\n    <div>\n      {/* Search */}\n      <input\n        type=\"text\"\n        placeholder=\"Search...\"\n        value={filters.search}\n        onChange={(e) => setFilters({...filters, search: e.target.value, page: 1})}\n      />\n\n      {/* Status Filter */}\n      <select\n        value={filters.status}\n        onChange={(e) => setFilters({...filters, status: e.target.value, page: 1})}>\n        <option value=all>All</option>\n        <option value=active>Active</option>\n        <option value=\"inactive\">Inactive</option>\n      </select>\n\n      {/* Table */}\n      {loading ? (\n        <div>Loading...</div>\n      ) : (\n        <table>\n          <thead>\n            <tr>\n              <th>ID</th>\n              <th>Name</th>\n              <th>Status</th>\n            </tr>\n          </thead>\n          <tbody>\n            {items.map(item => (\n              <tr key={item.id}>\n                <td>{item.id}</td>\n                <td>{item.name}</td>\n                <td>{item.status}</td>\n              </tr>\n            ))}\n          </tbody>\n        </table>\n      )}\n\n      {/* Pagination */}\n      <div>\n        <button\n          disabled={pagination.current_page === 1}\n          onClick={() => setFilters({...filters, page: filters.page - 1})}>\n          Previous\n        </button>\n\n        <span>\n          Page {pagination.current_page} of {pagination.last_page}\n          ({pagination.total} total)\n        </span>\n\n        <button\n          disabled={pagination.current_page === pagination.last_page}\n          onClick={() => setFilters({...filters, page: filters.page + 1})}>\n          Next\n        </button>\n      </div>\n    </div>\n  );\n}\n```\n\n\n```javascript\nimport { ref, computed } from 'vue';\n\nexport function use__VAR:entity_plural__List() {\n  const items = ref([]);\n  const loading = ref(false);\n  const meta = ref({ current_page: 1, last_page: 1, total: 0 });\n  const filters = ref({\n    page: 1,\n    pagesize: 15,\n    search: '',\n    status: 'all'\n  });\n\n  const hasNextPage = computed(() => meta.value.current_page < meta.value.last_page);\n  const hasPrevPage = computed(() => meta.value.current_page > 1);\n\n  const load = async () => {\n    loading.value = true;\n\n    const query = {\n       pagination: {\n        page: filters.value.page,\n        pagesize: filters.value.pagesize\n      },\n       orderby: __JSON:orderby_examples__\n    };\n\n    if (filters.value.search) {\n      query.oper = [\n         {\"or\": [\n          {\"0\": `like|name|%${filters.value.search}%|0`}\n        ]}\n      ];\n    }\n\n    if (filters.value.status !== 'all') {\n      query.attr = { status: filters.value.status };\n    }\n\n    try {\n      const response = await fetch('/api/__VAR:entity_url__', {\n        method: 'PUT',\n         headers: {\n          'Content-Type': 'application/json',\n          'Authorization': `Bearer ${localStorage.getItem('token')}`\n        },\n        body: JSON.stringify(query)\n      });\n\n      if (response.ok) {\n        const result = await response.json();\n        items.value = result.data;\n        meta.value = result.meta;\n      }\n    } finally {\n      loading.value = false;\n    }\n  };\n\n  const nextPage = () => {\n    if (hasNextPage.value) {\n      filters.value.page++;\n      load();\n    }\n  };\n\n  const prevPage = () => {\n    if (hasPrevPage.value) {\n      filters.value.page--;\n      load();\n    }\n  };\n\n  return {\n    items,\n    loading,\n    meta,\n    filters,\n    hasNextPage,\n    hasPrevPage,\n    load,\n    nextPage,\n    prevPage\n  };\n}\n```\n\n\n```bash\ncurl -X GET \"https://api.example.com/api/__VAR:entity_url__?page=1\" \\\n  -H \"Authorization: Bearer TOKEN\"\n\ncurl -X PUT https://api.example.com/api/__VAR:entity_url__ \\\n  -H \"Authorization: Bearer TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n     \"pagination\": {\"page\": 1, \"pagesize\": 15},\n     \"relations\": [\"relation1\"],\n     \"attr\": {\"status\": active},\n     \"oper\": [\n      {\"0\": \"like|name|%search%|0\"}\n    ],\n     \"orderby\": [\"created_at\":\"desc\"]\n  }'\n```\n\n\n```php\n<?php\n\nuse App\\Models\\__VAR:entity_singular__;\nuse Illuminate\\Http\\Request;\n\npublic function index(Request $request)\n{\n    $query = __VAR:entity_singular__::query();\n\n    // Apply filters from request\n    if ($request->has('attr')) {\n        foreach ($request->attr as $field => $value) {\n            if (is_array($value)) {\n                $query->whereIn($field, $value);\n            } else {\n                $query->where($field, $value);\n            }\n        }\n    }\n\n    // Apply operators\n    if ($request->has('oper')) {\n        // Complex oper logic here\n    }\n\n    // Load relations\n    if ($request->has('relations')) {\n        $relations = $request->relations;\n        if (in_array('all', $relations)) {\n            $query->with(['relation1', 'relation2']);\n        } else {\n            $query->with($relations);\n        }\n    }\n\n    // Apply sorting\n    if ($request->has('orderby')) {\n        foreach ($request->orderby as $order) {\n            [$field, $direction] = explode(':', $order);\n            $query->orderBy($field, $direction);\n        }\n    }\n\n    // Paginate\n    $pagesize = $request->input('pagination.pagesize', 15);\n    $items = $query->paginate($pagesize);\n\n    return response()->json($items);\n}\n```\n\n\n\n1. **Use Field Selection for Large Tables**\n```json\n {\"select\": [\"id\", \"name\", \"status\"]}\n```\n\n2. **Limit Pagesize**\n```json\n {\"pagination\": {\"pagesize\": 25}}  // Don't use 100 unless exporting\n```\n\n3. **Load Only Needed Relations**\n```json\n {\"relations\": [\"user\"]}  // Don't use all by default\n```\n\n\n1. **Show Loading State**\n```javascript\n{loading && <Spinner />}\n```\n\n2. **Display Total Count**\n```javascript\n<span>{meta.total} total items</span>\n```\n\n3. **Disable Pagination Buttons**\n```javascript\n<button disabled={!hasNextPage}>Next</button>\n```\n\n\n1. **Debounce Search Input**\n```javascript\nconst debouncedSearch = useDebounce(searchTerm, 500);\nuseEffect(() => {\n  if (debouncedSearch) {\n    loadItems();\n  }\n}, [debouncedSearch]);\n```\n\n2. **Reset Page on Filter Change**\n```javascript\nsetFilters({...filters, search: value, page: 1});\n```\n",
+    "tags": [
+        "__VAR:module__"
+    ],
+    "requestBody": {
+        "required": false,
+        "description": "Optional query configuration for advanced filtering, pagination, and relation loading.\n\nCan be sent via:\n- PUT request with JSON body (recommended for complex queries)\n- GET request with query parameters (simple pagination only)\n",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "relations": {
+                            "type": "array",
+                            "description": "Array of relation names to eager load",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": "__JSON:available_relations__"
+                        },
+                        "pagination": {
+                            "type": "object",
+                            "description": "Pagination configuration",
+                            "properties": {
+                                "page": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "example": 1
+                                },
+                                "pagesize": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "example": 15
+                                }
+                            }
+                        },
+                        "select": {
+                            "type": "array",
+                            "description": "Specific fields to return",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": "__JSON:available_fields__"
+                        },
+                        "attr": {
+                            "type": "object",
+                            "description": "Exact match filters",
+                            "additionalProperties": true,
+                            "example": "__JSON:attr_examples__"
+                        },
+                        "oper": {
+                            "type": "array",
+                            "description": "Advanced operator filters",
+                            "items": {
+                                "type": "object"
+                            },
+                            "example": "__JSON:oper_examples__"
+                        },
+                        "orderby": {
+                            "type": "array",
+                            "description": "Sort configuration",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": "__JSON:orderby_examples__\""
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "responses": {
+        "200": {
+            "description": "Successful response with paginated __VAR:entity_plural__.\n\nReturns:\n- data: Array of __VAR:entity_singular__ objects\n- meta: Pagination metadata\n- links: Navigation links\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "data": {
+                                "type": "array",
+                                "description": "Array of __VAR:entity_plural__",
+                                "items": "__JSON:model_schema__"
+                            },
+                            "meta": {
+                                "type": "object",
+                                "description": "Pagination metadata",
+                                "properties": {
+                                    "current_page": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "from": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "to": {
+                                        "type": "integer",
+                                        "example": 15
+                                    },
+                                    "per_page": {
+                                        "type": "integer",
+                                        "example": 15
+                                    },
+                                    "total": {
+                                        "type": "integer",
+                                        "example": 100
+                                    },
+                                    "last_page": {
+                                        "type": "integer",
+                                        "example": 7
+                                    }
+                                }
+                            },
+                            "links": {
+                                "type": "object",
+                                "description": "Pagination navigation links",
+                                "properties": {
+                                    "first": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "last": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "prev": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "nullable": true
+                                    },
+                                    "next": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "nullable": true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "400": {
+            "description": "Bad Request - Invalid query parameters.\n\nCommon causes:\n- Invalid operator syntax\n- Invalid orderby format\n- Page number less than 1\n- Pagesize exceeds maximum (100)\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Invalid query parameters."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Unauthorized - Authentication required.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Unauthenticated."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "403": {
+            "description": "Forbidden - Permission denied.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "This action is unauthorized."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal Server Error.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Server error occurred."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

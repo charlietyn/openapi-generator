@@ -1,0 +1,160 @@
+{
+    "summary": "User Logout",
+    "description": "Invalidate the current user's authentication token and terminate the session.\n\n\nThis endpoint logs out the authenticated user by invalidating their JWT token.\nAfter logout, the token can no longer be used to access protected endpoints.\n\n\n1. **Send request** - Include current valid token in Authorization header\n2. **Server invalidates** - Token is added to blacklist/revoked\n3. **Session terminated** - User must re-authenticate to access protected resources\n4. **Token unusable** - Subsequent requests with this token will return 401 Unauthorized\n\n\n**Content-Type:** Not required (no request body)\n\n**Required Headers:**\n- `Authorization: Bearer {token}` - Current valid authentication token\n\n**Request Body:** None (empty body or no body required)\n\n**Example Request:**\n```bash\nPOST /api/logout\nHeaders:\n  Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...\n  Content-Type: application/json\nBody: (empty)\n```\n\n\nConfirms successful logout and token invalidation.\n\n**Response Fields:**\n- `message` - Confirmation message\n\n**Example:**\n```json\n{\n  \"message\": \"Successfully logged out\"\n}\n```\n\n**Alternative Success Response (204):**\nSome implementations return `204 No Content` with empty response body.\nBoth 200 and 204 indicate successful logout.\n\n\nReturned when token is invalid, expired, or missing.\n\n**Common Causes:**\n- Authorization header missing\n- Token format incorrect (missing \"Bearer \" prefix)\n- Token already invalidated (previous logout)\n- Token expired naturally\n- Invalid token signature\n\n**Example:**\n```json\n{\n  \"message\": \"Unauthenticated.\"\n}\n```\n\n**Specific Error Messages:**\n```json\n// Missing Authorization header\n{\n  \"message\": \"Unauthenticated.\"\n}\n\n// Token expired\n{\n  \"message\": \"Token has expired.\"\n}\n\n// Token invalid\n{\n  \"message\": \"Token is invalid.\"\n}\n\n// Token already logged out\n{\n  \"message\": \"Token has been revoked.\"\n}\n```\n\nUnexpected server error during logout process.\n\n**Possible Causes:**\n- Database connection failure\n- Token blacklist service unavailable\n- Cache server error\n\n**Example:**\n```json\n{\n  \"message\": \"An error occurred while logging out. Please try again.\",\n  \"error_id\": \"err_logout_abc123\"\n}\n```\n\n**Action Required:**\n- Retry the logout request\n- If error persists, token may still be valid until natural expiration\n- Contact support if issue continues\n- As fallback, client should clear local token storage\n\n\n```bash\ncurl -X POST https://api.example.com/api/logout \\\n  -H \"Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...\" \\\n  -H \"Content-Type: application/json\"\n```\n\n```javascript\nasync function logout() {\n  const token = localStorage.getItem('auth_token');\n\n  try {\n    const response = await fetch('/api/logout', {\n      method: 'POST',\n      headers: {\n        'Authorization': 'Bearer ' + token,\n        'Content-Type': 'application/json'\n      }\n    });\n\n    if (response.ok) {\n      // Clear local storage\n      localStorage.removeItem('auth_token');\n      localStorage.removeItem('user_data');\n\n      // Redirect to login\n      window.location.href = '/login';\n    } else {\n      console.error('Logout failed:', await response.json());\n    }\n  } catch (error) {\n    console.error('Logout error:', error);\n    // Clear local token anyway as fallback\n    localStorage.removeItem('auth_token');\n  }\n}\n```\n\n```javascript\nimport axios from 'axios';\n\nasync function logout() {\n  try {\n    const response = await axios.post('/api/logout', {}, {\n      headers: {\n        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`\n      }\n    });\n\n    // Clear local storage\n    localStorage.clear();\n\n    // Redirect or update UI\n    window.location.href = '/login';\n\n  } catch (error) {\n    if (error.response?.status === 401) {\n      // Token already invalid, just clear local storage\n      localStorage.clear();\n    }\n    console.error('Logout error:', error);\n  }\n}\n```\n\n```php\nuse Illuminate\\Support\\Facades\\Http;\n\npublic function logout(Request $request)\n{\n    $token = $request->bearerToken();\n\n    $response = Http::withToken($token)\n        ->post('https://api.example.com/api/logout');\n\n    if ($response->successful()) {\n        // Clear session\n        $request->session()->forget('auth_token');\n\n        return redirect('/login')->with('message', 'Logged out successfully');\n    }\n\n    // Handle error\n    return back()->with('error', 'Logout failed');\n}\n```\n\n```python\nimport requests\n\ndef logout(token):\n    headers = {\n        'Authorization': f'Bearer {token}',\n        'Content-Type': 'application/json'\n    }\n\n    response = requests.post(\n        'https://api.example.com/api/logout',\n        headers=headers\n    )\n\n    if response.status_code == 200:\n        print('Logged out successfully')\n        clear_stored_token()\n    else:\n        print(f'Logout failed: {response.json()}')\n```\n\n\n**Token Invalidation:**\n- Logout immediately invalidates the token on server-side\n- Token added to blacklist/revocation list\n- Blacklist maintained until token's natural expiration\n- Prevents token reuse after logout\n\n**Client-Side Security:**\n- Always clear token from client storage after logout\n- Remove from: localStorage, sessionStorage, cookies\n- Clear any cached user data\n- Redirect to public page or login\n\n**Token Blacklist Strategy:**\n- Revoked tokens stored in cache (Redis recommended)\n- Blacklist entries expire when token would naturally expire\n- Reduces database/cache overhead\n- Fast lookup for authentication checks\n\n**Multiple Device Logout:**\n- This endpoint only logs out current session (single token)\n- Does not invalidate tokens from other devices\n- For \"logout from all devices\" functionality, use separate endpoint\n- See: `POST /api/logout-all-devices`\n\n\n**Immediate Effect:**\n- Token marked as revoked in blacklist\n- All subsequent requests with this token return 401\n- Effect is immediate (no delay)\n\n**Blacklist Expiration:**\n- Blacklist entry persists until token's original expiration time\n- Example: Token valid for 24h, logged out after 2h → blacklisted for remaining 22h\n- After natural expiration, entry automatically removed from blacklist\n\n**Why Not Delete Token Immediately:**\n- JWT tokens are stateless (stored on client)\n- Server cannot \"delete\" client's token\n- Blacklist is server-side check preventing token use\n- Client must delete their own local copy\n\n\n**Current Behavior:**\n- Logging out invalidates ONLY the token used in logout request\n- User may have other valid tokens from other devices/sessions\n- Those tokens remain valid until logout or expiration\n\n**Example Scenario:**\n```\nUser logged in on:\n- Desktop (Token A) - issued 2 days ago\n- Mobile (Token B) - issued 1 day ago\n- Tablet (Token C) - issued 1 hour ago\n\nUser logs out from Mobile:\n- Token B invalidated ❌\n- Token A still valid ✅\n- Token C still valid ✅\n```\n\n**To Logout All Devices:**\n- Use `POST /api/logout-all-devices` endpoint\n- Invalidates ALL tokens for this user\n- Requires re-authentication on all devices\n\n\n**Cause:** Token not included in request or format incorrect\n\n**Solutions:**\n1. Verify Authorization header is present\n2. Check format: `Authorization: Bearer {token}` (note the space after \"Bearer\")\n3. Ensure token is not already expired\n4. Check token is stored and retrieved correctly\n\n**Debug Steps:**\n```javascript\n// Check if token exists\nconst token = localStorage.getItem('auth_token');\nconsole.log('Token:', token ? 'exists' : 'missing');\n\n// Check header format\nconsole.log('Header:', `Bearer __JSON:token__`);\n```\n\n**Cause:** Client-side token not cleared or cached\n\n**Solutions:**\n1. Clear ALL storage: `localStorage.clear()`, `sessionStorage.clear()`\n2. Clear specific items: `localStorage.removeItem('auth_token')`\n3. Clear cookies if using cookie-based auth\n4. Hard refresh page or clear browser cache\n5. Check if using cached API responses\n\n**Complete Cleanup:**\n```javascript\n// Clear all auth data\nlocalStorage.removeItem('auth_token');\nlocalStorage.removeItem('refresh_token');\nlocalStorage.removeItem('user_data');\nsessionStorage.clear();\n\n// Clear cookies (if using)\ndocument.cookie.split(\";\").forEach(function(c) {\n  document.cookie = c.replace(/^ +/, \"\")\n    .replace(/=.*/, \"=;expires=\" + new Date().toUTCString() + \";path=/\");\n});\n\n// Force page reload\nwindow.location.reload();\n```\n\n**Cause:** Server-side error (blacklist service, database issue)\n\n**Solutions:**\n1. Retry logout request once\n2. If retry fails, clear local token anyway\n3. Token will naturally expire in 24h (or configured duration)\n4. Contact support if persistent\n\n**Fallback Strategy:**\n```javascript\nasync function safeLogout() {\n  try {\n    // Attempt server logout\n    await fetch('/api/logout', {\n      method: 'POST',\n      headers: { 'Authorization': 'Bearer ' + token }\n    });\n  } catch (error) {\n    console.error('Server logout failed:', error);\n  } finally {\n    // ALWAYS clear local storage, regardless of server response\n    localStorage.clear();\n    window.location.href = '/login';\n  }\n}\n```\n\n**Cause:** This endpoint only logs out current session\n\n**Solution:** Use dedicated endpoint for multi-device logout\n- `POST /api/logout-all-devices` - Invalidates all user tokens\n- `POST /api/logout-other-devices` - Keeps current, invalidates others\n\n**Cause:** Blacklist stored in memory-only cache\n\n**Solution:**\n- Use persistent cache (Redis) for token blacklist\n- Configure cache persistence in application\n- Check server configuration\n\n\n\n1. **Always Clear Local Storage**\n   ```javascript\n   // Even if logout fails, clear local token\n   try {\n     await logout();\n   } finally {\n     localStorage.removeItem('auth_token');\n   }\n   ```\n\n2. **Redirect After Logout**\n   ```javascript\n   // Redirect to public page\n   window.location.href = '/login';\n   // Or use router (React)\n   navigate('/login');\n   ```\n\n3. **Handle 401 Gracefully**\n   ```javascript\n   if (response.status === 401) {\n     // Token already invalid, just clear local data\n     localStorage.clear();\n     window.location.href = '/login';\n   }\n   ```\n\n4. **Show Loading State**\n   ```javascript\n   setLoading(true);\n   await logout();\n   setLoading(false);\n   ```\n\n5. **Confirm Before Logout** (Optional)\n   ```javascript\n   if (confirm('Are you sure you want to logout?')) {\n     await logout();\n   }\n   ```\n\n\n1. **Use Token Blacklist**\n   - Store revoked tokens in cache (Redis)\n   - Check blacklist on every authenticated request\n   - Auto-expire entries when token expires naturally\n\n2. **Return Consistent Responses**\n   - 200 with message, or 204 no content\n   - Document which one you use\n   - Be consistent across application\n\n3. **Log Logout Events**\n   - Track for security monitoring\n   - Include: user_id, timestamp, IP address\n   - Helps detect suspicious activity\n\n4. **Handle Edge Cases**\n   - Already logged out token → still return 200/204\n   - Expired token → return 401 with clear message\n   - Invalid token → return 401\n\n5. **Consider Refresh Tokens**\n   - If using refresh tokens, invalidate them too\n   - Remove from database/cache\n   - Prevent token refresh after logout\n\n\n| Code | Meaning | When | Client Action |\n|------|---------|------|---------------|\n| **200** | Success | Logout successful | Clear local storage, redirect |\n| **204** | Success (No Content) | Logout successful, no response body | Clear local storage, redirect |\n| **401** | Unauthorized | Missing/invalid/expired token | Clear local storage, redirect to login |\n| **500** | Server Error | Unexpected error | Clear local storage anyway, retry once |\n\n\n- `POST /api/login` - Authenticate and obtain token\n- `POST /api/refresh` - Refresh expired token (before logout)\n- `POST /api/logout-all-devices` - Logout from all sessions/devices\n- `POST /api/logout-other-devices` - Logout other sessions, keep current\n- `GET /api/user` - Get current authenticated user (to verify token)\n- `GET /api/sessions` - List all active user sessions\n\n\n```\n1. Register → POST /api/register\n2. Verify Email → GET /api/verify/{token}\n3. Login → POST /api/login (get token)\n4. Access Protected Routes → Include token in headers\n5. Refresh Token (optional) → POST /api/refresh\n6. Logout → POST /api/logout (invalidate token)\n7. Login Again → POST /api/login (get new token)\n```\n\n\n**Minimal Working Example:**\n```bash\ncurl -X POST https://api.example.com/api/logout \\\n  -H \"Authorization: Bearer YOUR_TOKEN_HERE\"\n\n{\n  \"message\": \"Successfully logged out\"\n}\n```\n\n**JavaScript One-Liner:**\n```javascript\n// Logout and redirect\nfetch('/api/logout', {\n  method: 'POST',\n  headers: {'Authorization': 'Bearer ' + localStorage.getItem('token')}\n}).then(() => {\n  localStorage.clear();\n  location.href = '/login';\n});\n```\n\n\n- Logout is **idempotent** - calling multiple times has same effect\n- Token is invalidated **immediately** on successful logout\n- Client **must** clear local storage (server cannot do this)\n- Token cannot be used after logout, even if client keeps it\n- For multi-device logout, use separate endpoint\n- Always use HTTPS in production to protect token in transit\n",
+    "tags": [
+        "Authentication"
+    ],
+    "requestBody": {
+        "required": false,
+        "description": "No request body required. Token is passed via Authorization header.\n\n**Note:** Some clients may send empty JSON object `{}`, which is acceptable but not required.\n",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": []
+                },
+                "examples": {
+                    "no_body": {
+                        "summary": "No Request Body (Recommended)",
+                        "value": null
+                    },
+                    "empty_object": {
+                        "summary": "Empty JSON Object (Also Valid)",
+                        "value": []
+                    }
+                }
+            }
+        }
+    },
+    "responses": {
+        "200": {
+            "description": "Logout successful. Token has been invalidated and user session terminated.\n\nThe token used in this request can no longer be used to access protected endpoints.\nClient should clear local storage and redirect to login page.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "Success confirmation message",
+                                "example": "Successfully logged out"
+                            }
+                        }
+                    },
+                    "examples": {
+                        "standard_response": {
+                            "summary": "Standard Success Response",
+                            "value": {
+                                "message": "Successfully logged out"
+                            }
+                        },
+                        "detailed_response": {
+                            "summary": "Detailed Response (Optional)",
+                            "value": {
+                                "message": "Successfully logged out",
+                                "logged_out_at": "2025-12-29T15:30:00Z"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "204": {
+            "description": "Logout successful (No Content).\n\nAlternative success response with no body. Both 200 and 204 indicate successful logout.\nToken has been invalidated and session terminated.\n"
+        },
+        "401": {
+            "description": "Unauthorized - Token is missing, invalid, expired, or already revoked.\n\n**Common scenarios:**\n- Authorization header not present\n- Token format incorrect (missing \"Bearer \" prefix)\n- Token signature invalid or tampered\n- Token already invalidated by previous logout\n- Token expired naturally (past expiration time)\n\n**Client action:**\n- Clear local token storage anyway\n- Redirect to login page\n- No retry needed (token is invalid)\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "Error message indicating authentication failure",
+                                "example": "Unauthenticated."
+                            }
+                        }
+                    },
+                    "examples": {
+                        "missing_token": {
+                            "summary": "Missing Authorization Header",
+                            "value": {
+                                "message": "Unauthenticated."
+                            }
+                        },
+                        "invalid_token": {
+                            "summary": "Invalid Token Signature",
+                            "value": {
+                                "message": "Token is invalid."
+                            }
+                        },
+                        "expired_token": {
+                            "summary": "Token Expired",
+                            "value": {
+                                "message": "Token has expired."
+                            }
+                        },
+                        "revoked_token": {
+                            "summary": "Token Already Logged Out",
+                            "value": {
+                                "message": "Token has been revoked."
+                            }
+                        },
+                        "malformed_token": {
+                            "summary": "Malformed Token",
+                            "value": {
+                                "message": "Token format is invalid."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal Server Error - Unexpected error occurred during logout.\n\n**Possible causes:**\n- Database connection failure\n- Cache/Redis service unavailable\n- Token blacklist service error\n\n**Client action:**\n- Retry logout request once\n- If retry fails, clear local token anyway (fallback)\n- Token will naturally expire after configured duration\n- Contact support if error persists\n\n**Important:** Even on 500 error, client should clear local token storage\nas a fallback measure. The token will expire naturally if server-side\ninvalidation fails.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "Error message",
+                                "example": "An error occurred while logging out. Please try again."
+                            },
+                            "error_id": {
+                                "type": "string",
+                                "description": "Error tracking ID (provide to support)",
+                                "example": "err_logout_abc123def456"
+                            }
+                        }
+                    },
+                    "examples": {
+                        "generic_error": {
+                            "summary": "Generic Server Error",
+                            "value": {
+                                "message": "An error occurred while logging out. Please try again.",
+                                "error_id": "err_logout_abc123def456"
+                            }
+                        },
+                        "blacklist_error": {
+                            "summary": "Token Blacklist Service Error",
+                            "value": {
+                                "message": "Token revocation service temporarily unavailable.",
+                                "error_id": "err_blacklist_xyz789"
+                            }
+                        },
+                        "database_error": {
+                            "summary": "Database Connection Error",
+                            "value": {
+                                "message": "Unable to process logout request. Please try again.",
+                                "error_id": "err_db_connection_456"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,223 @@
+{
+    "summary": "Refresh Authentication Token",
+    "description": "Obtain a new access token and refresh token without re-entering credentials.\n\n\nThis endpoint extends the user session by issuing new tokens when the current\naccess token is about to expire or has recently expired. This allows users to\nmaintain their session without having to login again.\n\n\n1. **Detect token expiration** - Client monitors token expiration time\n2. **Send refresh request** - Include current (or recently expired) token\n3. **Receive new tokens** - Server issues new access token and refresh token\n4. **Update storage** - Client replaces old tokens with new ones\n5. **Continue session** - User can access protected resources with new token\n\n\n```\nLOGIN\n  ↓\nAccess Token (expires_in: 60s)\n  ↓\n[Token about to expire]\n  ↓\nREFRESH (at ~50s or after expiration)\n  ↓\nNew Access Token (expires_in: 60s)\n+ New Refresh Token (refresh_expires_in: 65s)\n  ↓\n[Continue using API]\n  ↓\nREFRESH again when needed\n```\n\n\n**Content-Type:** Not required (no request body)\n\n**Required Headers:**\n- `Authorization: Bearer {token}` - Current access token (can be expired within grace period)\n\n**Request Body:** None (empty or no body)\n\n**Example Request:**\n```bash\nPOST /api/refresh\nHeaders:\n  Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...\n  Content-Type: application/json\nBody: (empty)\n```\n\n\nReturns new access token and refresh token, both with updated expiration times.\n\n**Response Fields:**\n- `token` - New JWT access token (use this for API requests)\n- `token_type` - Always \"bearer\"\n- `expires_in` - Access token validity in seconds (typically 60s)\n- `refresh_token` - New refresh token (use this for next refresh)\n- `refresh_expires_in` - Refresh token validity in seconds (typically 65s)\n\n**Example:**\n```json\n{\n  \"token\": \"eyJ0eXAiOiJKV1QiLCJhbGc...\",\n  \"token_type\": \"bearer\",\n  \"expires_in\": 60,\n  \"refresh_token\": \"eyJ0eXAiOiJKV1QiLCJhbGc...\",\n  \"refresh_expires_in\": 65\n}\n```\n\n**Important Notes:**\n- **BOTH tokens are NEW** - Replace old tokens in storage\n- **Access token** - Use this for API calls to protected endpoints\n- **Refresh token** - Save this for the next refresh cycle\n- **Expiration times** - Start counting from the response time\n- **Old tokens invalidated** - Previous tokens become unusable\n\n\nThis API uses a **dual token system** for enhanced security:\n\n- **Purpose:** Access protected API resources\n- **Lifetime:** Short (60 seconds in this example)\n- **Usage:** Include in Authorization header for all API requests\n- **Security:** Minimal exposure window if compromised\n\n- **Purpose:** Obtain new access tokens\n- **Lifetime:** Slightly longer (65 seconds in this example)\n- **Usage:** Only used for refresh endpoint\n- **Security:** Separate from access token, different signature\n\n\n**Security Benefits:**\n1. Access tokens expire quickly (limited exposure)\n2. Refresh tokens rarely used (less network transmission)\n3. Both tokens rotate on each refresh (prevents replay attacks)\n4. Compromised access token becomes useless after 60s\n\n**User Experience:**\n- User stays logged in without re-entering password\n- Seamless token rotation in background\n- No interruption to workflow\n\n\n**Recommended Strategy:**\n\n```javascript\n// Strategy 1: Proactive Refresh (RECOMMENDED)\n// Refresh BEFORE token expires\nconst tokenExpiresAt = Date.now() + (expires_in * 1000);\nconst refreshAt = tokenExpiresAt - 10000; // 10 seconds before expiry\n\nsetTimeout(refreshToken, refreshAt - Date.now());\n```\n\n```javascript\n// Strategy 2: Reactive Refresh (Fallback)\n// Refresh when 401 error received\nfetch('/api/users')\n  .then(response => {\n    if (response.status === 401) {\n      return refreshToken().then(() => retryRequest());\n    }\n    return response.json();\n  });\n```\n\n**Best Practice:**\n- Refresh **10 seconds before** token expires\n- Set up automatic refresh timer\n- Have fallback for 401 errors\n- Don't wait until exact expiration\n\n**Timing Examples:**\n```\nToken issued at:  00:00:00\nToken expires at: 00:01:00 (60s)\nRefresh at:       00:00:50 (10s buffer)\n\nIf user idle:     Let token expire\nIf user active:   Refresh automatically\n```\n\n\nReturned when token cannot be refreshed.\n\n**Common Causes:**\n- Access token expired beyond grace period (>5 minutes typically)\n- Token signature invalid or tampered\n- Token already used for refresh (one-time use)\n- Refresh token also expired\n- User logged out (token blacklisted)\n- Token format incorrect\n\n**Example:**\n```json\n{\n  \"message\": \"Token has expired and can no longer be refreshed.\"\n}\n```\n\n**Specific Error Messages:**\n```json\n// Token too old to refresh\n{\n  \"message\": \"Token has expired and can no longer be refreshed.\"\n}\n\n// Token invalid\n{\n  \"message\": \"Token is invalid.\"\n}\n\n// Token already used\n{\n  \"message\": \"Token has already been refreshed.\"\n}\n\n// User logged out\n{\n  \"message\": \"Token has been revoked.\"\n}\n\n// Missing token\n{\n  \"message\": \"Unauthenticated.\"\n}\n```\n\n**Action Required:**\n- Token is no longer valid\n- User must login again\n- Redirect to login page\n- Clear local storage\n- Cannot retry (must re-authenticate)\n\nReturned when too many refresh requests in short time.\n\n**Rate Limit:**\n- Maximum 10 refresh attempts per minute\n- Prevents refresh token abuse\n- Counter resets after 60 seconds\n\n**Example:**\n```json\n{\n  \"message\": \"Too many refresh requests. Please try again later.\",\n  \"retry_after\": 30\n}\n```\n\n**Action Required:**\n- Wait for duration specified in `retry_after`\n- Check refresh logic (might be calling too frequently)\n- Implement exponential backoff\n\nUnexpected server error during refresh.\n\n**Example:**\n```json\n{\n  \"message\": \"An error occurred while refreshing token.\",\n  \"error_id\": \"err_refresh_abc123\"\n}\n```\n\n**Action Required:**\n- Retry refresh once\n- If fails again, redirect to login\n- Contact support with error_id\n\n\n```javascript\n// ============================================\n// COMPLETE AUTO-REFRESH IMPLEMENTATION\n// ============================================\n\nlet refreshTimer = null;\n\n/**\n * Refresh access token\n */\nasync function refreshToken() {\n  const currentToken = localStorage.getItem('auth_token');\n\n  if (!currentToken) {\n    console.log('No token to refresh');\n    window.location.href = '/login';\n    return null;\n  }\n\n  try {\n    const response = await fetch('/api/refresh', {\n      method: 'POST',\n      headers: {\n        'Authorization': `Bearer __JSON:currentToken__`,\n        'Content-Type': 'application/json'\n      }\n    });\n\n    if (!response.ok) {\n      if (response.status === 401) {\n        // Token cannot be refreshed - must login\n        console.log('Token expired, redirecting to login');\n        localStorage.clear();\n        window.location.href = '/login';\n        return null;\n      }\n\n      throw new Error(`Refresh failed: ${response.status}`);\n    }\n\n    const data = await response.json();\n\n    // ✅ UPDATE BOTH TOKENS\n    localStorage.setItem('auth_token', data.token);\n    localStorage.setItem('refresh_token', data.refresh_token);\n    localStorage.setItem('token_expires_at', Date.now() + (data.expires_in * 1000));\n    localStorage.setItem('refresh_expires_at', Date.now() + (data.refresh_expires_in * 1000));\n\n    console.log('Token refreshed successfully');\n\n    // ⏰ SCHEDULE NEXT REFRESH\n    scheduleTokenRefresh(data.expires_in);\n\n    return data.token;\n\n  } catch (error) {\n    console.error('Token refresh error:', error);\n\n    // Clear storage and redirect to login\n    localStorage.clear();\n    window.location.href = '/login';\n    return null;\n  }\n}\n\n/**\n * Schedule automatic token refresh\n * @param {number} expiresIn - Seconds until token expires\n */\nfunction scheduleTokenRefresh(expiresIn) {\n  // Clear existing timer\n  if (refreshTimer) {\n    clearTimeout(refreshTimer);\n  }\n\n  // Refresh 10 seconds before expiration\n  const refreshIn = (expiresIn - 10) * 1000;\n\n  console.log(`Token will be refreshed in ${refreshIn / 1000} seconds`);\n\n  refreshTimer = setTimeout(() => {\n    console.log('Auto-refreshing token...');\n    refreshToken();\n  }, refreshIn);\n}\n\n/**\n * Initialize auto-refresh on page load\n */\nfunction initAutoRefresh() {\n  const expiresAt = localStorage.getItem('token_expires_at');\n\n  if (!expiresAt) {\n    return;\n  }\n\n  const expiresIn = (parseInt(expiresAt) - Date.now()) / 1000;\n\n  if (expiresIn <= 0) {\n    // Token already expired, refresh immediately\n    refreshToken();\n  } else {\n    // Schedule refresh before expiration\n    scheduleTokenRefresh(expiresIn);\n  }\n}\n\n// Start auto-refresh on page load\ndocument.addEventListener('DOMContentLoaded', initAutoRefresh);\n\n/**\n * Fetch with automatic token refresh on 401\n */\nasync function fetchWithAuth(url, options = {}) {\n  const token = localStorage.getItem('auth_token');\n\n  const response = await fetch(url, {\n    ...options,\n    headers: {\n      ...options.headers,\n      'Authorization': `Bearer __JSON:token__`,\n      'Content-Type': 'application/json'\n    }\n  });\n\n  // If 401, try to refresh and retry once\n  if (response.status === 401) {\n    console.log('Got 401, attempting token refresh...');\n\n    const newToken = await refreshToken();\n\n    if (newToken) {\n      // Retry request with new token\n      return fetch(url, {\n        ...options,\n        headers: {\n          ...options.headers,\n          'Authorization': `Bearer __JSON:newToken__`,\n          'Content-Type': 'application/json'\n        }\n      });\n    }\n  }\n\n  return response;\n}\n\n// ============================================\n// USAGE\n// ============================================\n\n// Use fetchWithAuth instead of fetch for protected routes\nfetchWithAuth('/api/users')\n  .then(response => response.json())\n  .then(data => console.log('Users:', data))\n  .catch(error => console.error('Error:', error));\n```\n\n```javascript\n/**\n * Manual token refresh (triggered by user)\n */\nasync function manualRefresh() {\n  const button = document.getElementById('refreshBtn');\n  button.disabled = true;\n  button.textContent = 'Refreshing...';\n\n  try {\n    const token = await refreshToken();\n\n    if (token) {\n      alert('Token refreshed successfully!');\n    } else {\n      alert('Refresh failed. Redirecting to login...');\n    }\n\n  } catch (error) {\n    alert('Error refreshing token');\n  } finally {\n    button.disabled = false;\n    button.textContent = 'Refresh Token';\n  }\n}\n\ndocument.getElementById('refreshBtn').addEventListener('click', manualRefresh);\n```\n\n```javascript\nimport axios from 'axios';\n\n// Flag to prevent multiple refresh attempts\nlet isRefreshing = false;\nlet failedQueue = [];\n\nconst processQueue = (error, token = null) => {\n  failedQueue.forEach(prom => {\n    if (error) {\n      prom.reject(error);\n    } else {\n      prom.resolve(token);\n    }\n  });\n\n  failedQueue = [];\n};\n\n// Response interceptor\naxios.interceptors.response.use(\n  (response) => response,\n  async (error) => {\n    const originalRequest = error.config;\n\n    if (error.response?.status === 401 && !originalRequest._retry) {\n      if (isRefreshing) {\n        // Queue this request until refresh completes\n        return new Promise((resolve, reject) => {\n          failedQueue.push({ resolve, reject });\n        }).then(token => {\n          originalRequest.headers['Authorization'] = 'Bearer ' + token;\n          return axios(originalRequest);\n        }).catch(err => {\n          return Promise.reject(err);\n        });\n      }\n\n      originalRequest._retry = true;\n      isRefreshing = true;\n\n      try {\n        const token = localStorage.getItem('auth_token');\n        const response = await axios.post('/api/refresh', {}, {\n          headers: { 'Authorization': `Bearer __JSON:token__` }\n        });\n\n        const newToken = response.data.token;\n\n        // Update stored tokens\n        localStorage.setItem('auth_token', newToken);\n        localStorage.setItem('refresh_token', response.data.refresh_token);\n\n        // Update default header\n        axios.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;\n\n        // Process queued requests\n        processQueue(null, newToken);\n\n        // Retry original request\n        originalRequest.headers['Authorization'] = 'Bearer ' + newToken;\n        return axios(originalRequest);\n\n      } catch (refreshError) {\n        processQueue(refreshError, null);\n\n        // Refresh failed - redirect to login\n        localStorage.clear();\n        window.location.href = '/login';\n\n        return Promise.reject(refreshError);\n      } finally {\n        isRefreshing = false;\n      }\n    }\n\n    return Promise.reject(error);\n  }\n);\n```\n\n```javascript\nimport { useEffect, useRef } from 'react';\nimport { useNavigate } from 'react-router-dom';\n\n/**\n * Custom hook for automatic token refresh\n */\nexport function useTokenRefresh() {\n  const navigate = useNavigate();\n  const timerRef = useRef(null);\n\n  const refreshToken = async () => {\n    const token = localStorage.getItem('auth_token');\n\n    if (!token) {\n      navigate('/login');\n      return;\n    }\n\n    try {\n      const response = await fetch('/api/refresh', {\n        method: 'POST',\n        headers: {\n          'Authorization': `Bearer __JSON:token__`,\n          'Content-Type': 'application/json'\n        }\n      });\n\n      if (!response.ok) {\n        throw new Error('Refresh failed');\n      }\n\n      const data = await response.json();\n\n      // Update tokens\n      localStorage.setItem('auth_token', data.token);\n      localStorage.setItem('refresh_token', data.refresh_token);\n\n      // Schedule next refresh\n      scheduleRefresh(data.expires_in);\n\n    } catch (error) {\n      console.error('Refresh error:', error);\n      localStorage.clear();\n      navigate('/login');\n    }\n  };\n\n  const scheduleRefresh = (expiresIn) => {\n    if (timerRef.current) {\n      clearTimeout(timerRef.current);\n    }\n\n    const refreshIn = (expiresIn - 10) * 1000;\n    timerRef.current = setTimeout(refreshToken, refreshIn);\n  };\n\n  useEffect(() => {\n    const expiresAt = localStorage.getItem('token_expires_at');\n\n    if (expiresAt) {\n      const expiresIn = (parseInt(expiresAt) - Date.now()) / 1000;\n\n      if (expiresIn <= 0) {\n        refreshToken();\n      } else {\n        scheduleRefresh(expiresIn);\n      }\n    }\n\n    return () => {\n      if (timerRef.current) {\n        clearTimeout(timerRef.current);\n      }\n    };\n  }, []);\n\n  return { refreshToken };\n}\n\n// Usage in component\nfunction App() {\n  useTokenRefresh();\n\n  return <div>Your app content</div>;\n}\n```\n\n```bash\ncurl -X POST https://api.example.com/api/refresh \\\n  -H \"Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...\" \\\n  -H \"Content-Type: application/json\"\n\n{\n  \"token\": \"NEW_ACCESS_TOKEN_HERE\",\n  \"token_type\": \"bearer\",\n  \"expires_in\": 60,\n  \"refresh_token\": \"NEW_REFRESH_TOKEN_HERE\",\n  \"refresh_expires_in\": 65\n}\n```\n\n```php\nuse Illuminate\\Support\\Facades\\Http;\n\npublic function refreshToken(Request $request)\n{\n    $currentToken = $request->bearerToken();\n\n    try {\n        $response = Http::withToken($currentToken)\n            ->post('https://api.example.com/api/refresh');\n\n        if ($response->successful()) {\n            $data = $response->json();\n\n            // Update session with new tokens\n            session([\n                'auth_token' => $data['token'],\n                'refresh_token' => $data['refresh_token'],\n                'token_expires_at' => now()->addSeconds($data['expires_in'])\n            ]);\n\n            return response()->json($data);\n        }\n\n        // Refresh failed - clear session and redirect\n        $request->session()->flush();\n        return redirect('/login')->with('error', 'Session expired');\n\n    } catch (\\Exception $e) {\n        return response()->json(['error' => 'Refresh failed'], 500);\n    }\n}\n```\n\n```python\nimport requests\nimport time\nimport threading\n\nclass TokenManager:\n    def __init__(self, api_url, initial_token):\n        self.api_url = api_url\n        self.access_token = initial_token\n        self.refresh_token = None\n        self.expires_in = None\n        self.refresh_timer = None\n\n    def refresh(self):\n        \"\"\"Refresh access token\"\"\"\n        headers = {\n            'Authorization': f'Bearer {self.access_token}',\n            'Content-Type': 'application/json'\n        }\n\n        try:\n            response = requests.post(\n                f'{self.api_url}/refresh',\n                headers=headers\n            )\n\n            if response.status_code == 200:\n                data = response.json()\n\n                self.access_token = data['token']\n                self.refresh_token = data['refresh_token']\n                self.expires_in = data['expires_in']\n\n                print('Token refreshed successfully')\n\n                self.schedule_refresh()\n\n                return True\n            else:\n                print(f'Refresh failed: {response.status_code}')\n                return False\n\n        except Exception as e:\n            print(f'Refresh error: {e}')\n            return False\n\n    def schedule_refresh(self):\n        \"\"\"Schedule automatic refresh before expiration\"\"\"\n        if self.refresh_timer:\n            self.refresh_timer.cancel()\n\n        refresh_in = max(self.expires_in - 10, 5)\n\n        print(f'Scheduling refresh in {refresh_in} seconds')\n\n        self.refresh_timer = threading.Timer(refresh_in, self.refresh)\n        self.refresh_timer.daemon = True\n        self.refresh_timer.start()\n\n    def get_token(self):\n        \"\"\"Get current valid access token\"\"\"\n        return self.access_token\n\ntoken_manager = TokenManager('https://api.example.com/api', 'initial_token')\ntoken_manager.schedule_refresh()\n\nheaders = {'Authorization': f'Bearer {token_manager.get_token()}'}\nresponse = requests.get('https://api.example.com/api/users', headers=headers)\n```\n\n\n- **Both tokens rotate** on each refresh (old tokens invalidated)\n- **One-time use** - Cannot refresh with same token twice\n- **Prevents replay attacks** - Stolen token becomes useless after refresh\n- **Refresh token tracking** - Server maintains refresh token history\n\n\n**Recommended Storage:**\n- Access token: Memory or secure storage\n- Refresh token: More secure storage (encrypted)\n- Never expose tokens in URLs\n- Clear on logout or app close\n\n**Storage Comparison:**\n| Storage | Security | Persistence | XSS Risk |\n|---------|----------|-------------|----------|\n| Memory | High | No (page refresh loses it) | Low |\n| localStorage | Medium | Yes | High |\n| sessionStorage | Medium | Yes (tab only) | High |\n| httpOnly Cookie | High | Yes | None |\n| Encrypted Storage | High | Yes | Low |\n\n**Best Practice:**\n```javascript\n// Store access token in memory for high security\nlet accessToken = null;\n\n// Store refresh token in localStorage (more persistent)\nlocalStorage.setItem('refresh_token', refreshToken);\n\n// Or use secure cookie (best for production)\n// Set via server with httpOnly, secure, sameSite flags\n```\n\n\n**Server-Side Protection:**\n```\nUser refreshes token A → Gets token B\nAttacker tries to use token A again → ALERT! Possible token theft\nServer action: Invalidate ALL user tokens, force re-login\n```\n\n\n- Tokens can be refreshed for short period after expiration\n- Typical grace period: 5 minutes\n- Prevents race conditions\n- Improves user experience\n\n\n**Cause:** Token expired beyond grace period (>5 minutes typically)\n\n**Solutions:**\n1. Check refresh timing - refresh BEFORE expiration\n2. Implement proactive refresh (10s before expiry)\n3. User must login again (token too old)\n\n**Prevention:**\n```javascript\n// ✅ GOOD: Refresh 10s before expiry\nsetTimeout(refreshToken, (expiresIn - 10) * 1000);\n\n// ❌ BAD: Wait until exact expiration\nsetTimeout(refreshToken, expiresIn * 1000);\n```\n\n**Cause:** Multiple tabs or race conditions\n\n**Solutions:**\n1. Use request queuing (Axios interceptor example above)\n2. Lock refresh process with flag\n3. Coordinate tabs with BroadcastChannel\n\n**Implementation:**\n```javascript\nlet isRefreshing = false;\n\nasync function refreshToken() {\n  if (isRefreshing) {\n    console.log('Refresh already in progress');\n    return;\n  }\n\n  isRefreshing = true;\n  try {\n    // Refresh logic here\n  } finally {\n    isRefreshing = false;\n  }\n}\n```\n\n**Cause:** Old token still being used in requests\n\n**Solutions:**\n1. Verify token is updated in storage\n2. Check all API call functions use latest token\n3. Update global headers after refresh\n\n**Fix:**\n```javascript\n// ✅ ALWAYS get fresh token from storage\nfunction getAuthToken() {\n  return localStorage.getItem('auth_token');\n}\n\n// Use in requests\nfetch('/api/users', {\n  headers: {\n    'Authorization': `Bearer ${getAuthToken()}` // Fresh token\n  }\n});\n\n// ❌ DON'T cache token in variable\nconst token = localStorage.getItem('auth_token'); // Stale after refresh\n```\n\n**Cause:** Refreshing too frequently\n\n**Solutions:**\n1. Check refresh logic - might be calling in loop\n2. Increase buffer time before expiry\n3. Implement exponential backoff\n\n**Debug:**\n```javascript\nconsole.log('Refresh triggered at:', new Date().toISOString());\nconsole.log('Token expires at:', new Date(expiresAt).toISOString());\n```\n\n**Cause:** Server only returns tokens, not user data\n\n**Solution:** This is expected behavior\n- Refresh endpoint only returns tokens\n- To get user data, call `GET /api/user` with new token\n\n```javascript\n// After refresh\nconst newToken = await refreshToken();\n\n// Fetch fresh user data if needed\nconst userData = await fetch('/api/user', {\n  headers: { 'Authorization': `Bearer __JSON:newToken__` }\n});\n```\n\n**Cause:** Using old token for logout\n\n**Solution:**\n```javascript\n// ✅ Get latest token\nconst currentToken = localStorage.getItem('auth_token');\n\nawait fetch('/api/logout', {\n  headers: { 'Authorization': `Bearer __JSON:currentToken__` }\n});\n```\n\n\n\n1. **Proactive Refresh**\n   ```javascript\n   // Refresh 10-15 seconds before expiration\n   const refreshAt = expiresAt - 10000;\n   ```\n\n2. **Store Both Tokens**\n   ```javascript\n   localStorage.setItem('auth_token', data.token);\n   localStorage.setItem('refresh_token', data.refresh_token);\n   ```\n\n3. **Update Expiration Time**\n   ```javascript\n   const expiresAt = Date.now() + (data.expires_in * 1000);\n   localStorage.setItem('token_expires_at', expiresAt);\n   ```\n\n4. **Handle 401 Gracefully**\n   ```javascript\n   if (response.status === 401) {\n     const newToken = await refreshToken();\n     if (newToken) {\n       // Retry request\n     } else {\n       // Redirect to login\n     }\n   }\n   ```\n\n5. **Clear Timers on Logout**\n   ```javascript\n   function logout() {\n     clearTimeout(refreshTimer);\n     localStorage.clear();\n     window.location.href = '/login';\n   }\n   ```\n\n\n1. **Short-Lived Access Tokens**\n   - Keep access tokens short (1-15 minutes)\n   - Reduces exposure window if compromised\n\n2. **Longer Refresh Tokens**\n   - Refresh tokens slightly longer than access\n   - Allows grace period for refresh\n\n3. **Rotate Both Tokens**\n   - Issue new access AND refresh tokens\n   - Invalidate old refresh token\n   - Prevents token reuse\n\n4. **Implement Grace Period**\n   - Allow refresh for short time after expiration\n   - Typical: 5 minutes\n   - Improves UX\n\n5. **Detect Refresh Token Reuse**\n   - Track used refresh tokens\n   - Alert on reuse attempts\n   - Invalidate all user tokens on detection\n\n6. **Rate Limit Refresh Endpoint**\n   - Prevent abuse (10 per minute)\n   - Implement per-user limits\n\n\n| Code | Meaning | When | Client Action |\n|------|---------|------|---------------|\n| **200** | Success | Token refreshed successfully | Update stored tokens, continue session |\n| **401** | Unauthorized | Token invalid/expired/revoked | Clear storage, redirect to login |\n| **429** | Rate Limited | Too many refresh attempts | Wait and retry, check refresh logic |\n| **500** | Server Error | Unexpected error | Retry once, then redirect to login |\n\n\n- `POST /api/login` - Obtain initial tokens\n- `POST /api/logout` - Invalidate all tokens\n- `GET /api/user` - Get authenticated user data\n- `POST /api/logout-all-devices` - Invalidate all user sessions\n\n\n```\n1. LOGIN\n   POST /api/login\n   Returns: access_token (60s) + refresh_token (65s)\n\n2. USE API\n   GET /api/users\n   Header: Authorization: Bearer {access_token}\n\n3. BEFORE EXPIRY (at 50s)\n   POST /api/refresh\n   Header: Authorization: Bearer {old_access_token}\n   Returns: NEW access_token (60s) + NEW refresh_token (65s)\n\n4. UPDATE STORAGE\n   Replace old tokens with new tokens\n\n5. CONTINUE USING API\n   GET /api/users\n   Header: Authorization: Bearer {new_access_token}\n\n6. REPEAT REFRESH CYCLE\n   Every 50 seconds, refresh tokens\n\n7. LOGOUT\n   POST /api/logout\n   Invalidates all tokens\n```\n\n\n**Minimal Working Example:**\n```javascript\n// Refresh token\nconst response = await fetch('/api/refresh', {\n  method: 'POST',\n  headers: {\n    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`\n  }\n});\n\nconst data = await response.json();\n\n// Update storage\nlocalStorage.setItem('auth_token', data.token);\nlocalStorage.setItem('refresh_token', data.refresh_token);\n\n// Schedule next refresh in 50 seconds\nsetTimeout(refreshToken, 50000);\n```\n\n\n- **Both tokens are new** - Don't keep old tokens\n- **Refresh proactively** - Before expiration, not after\n- **Handle 401 gracefully** - Redirect to login if refresh fails\n- **One-time use** - Cannot refresh with same token twice\n- **Grace period** - Can refresh shortly after expiration (~5 min)\n- **Rate limited** - Don't refresh too frequently\n- **Security first** - Store tokens securely, rotate regularly\n- **Always use HTTPS** - Protect tokens in transit\n",
+    "tags": [
+        "Authentication"
+    ],
+    "requestBody": {
+        "required": false,
+        "description": "No request body required. Current token is passed via Authorization header.\n",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": []
+                }
+            }
+        }
+    },
+    "responses": {
+        "200": {
+            "description": "Token refresh successful. Returns new access token and refresh token.\n\n**CRITICAL:** Both the access token AND refresh token are NEW. You must:\n1. Replace the old access token with the new one\n2. Replace the old refresh token with the new one\n3. Update expiration timestamps\n4. Schedule next refresh cycle\n\nOld tokens are invalidated and cannot be used again.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": [
+                            "token",
+                            "token_type",
+                            "expires_in",
+                            "refresh_token",
+                            "refresh_expires_in"
+                        ],
+                        "properties": {
+                            "token": {
+                                "type": "string",
+                                "description": "New JWT access token. Use this for all API requests.\nReplaces the old access token.\n",
+                                "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0L3RlbmNlbnQvcHVibGljL2FwaS9sb2dpbiIsImlhdCI6MTc2NjM0MjkxNCwiZXhwIjoxNzY2MzQ2NTE0LCJuYmYiOjE3NjYzNDI5MTQsImp0aSI6InJiUmgwMWFwWEZHS0RjZ1IiLCJzdWIiOiIxIiwicHJ2IjoiNmM2MDhiY2U0MTNiOWNjN2IzMzNjYWFiOWQzYzc3NzcyYWJjNTA3NCIsImVtYWlsIjoiYWRtaW4udGVuY2VudEBleGFtcGxlLmNvbSJ9.5YAI_JWaTOrZKZzUjiOJhw_FUBO7O5ZuWZ7df6agktg"
+                            },
+                            "token_type": {
+                                "type": "string",
+                                "description": "Token type (always \"bearer\")",
+                                "example": "bearer",
+                                "enum": [
+                                    "bearer"
+                                ]
+                            },
+                            "expires_in": {
+                                "type": "integer",
+                                "description": "Access token validity duration in seconds.\nTypically 60 seconds (1 minute).\nStart countdown from response time.\n",
+                                "example": 60,
+                                "minimum": 1
+                            },
+                            "refresh_token": {
+                                "type": "string",
+                                "description": "New refresh token. Use this for the NEXT refresh cycle.\nReplaces the old refresh token.\n",
+                                "example": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0L3RlbmNlbnQvcHVibGljL2FwaS9sb2dpbiIsImlhdCI6MTc2NjM0MjkxNCwiZXhwIjoxNzY2MzQ2NTE0LCJuYmYiOjE3NjYzNDI5MTQsImp0aSI6ImIzT3lDS3hFU2tuMWNJN1EiLCJzdWIiOiIxIiwicHJ2IjoiNmM2MDhiY2U0MTNiOWNjN2IzMzNjYWFiOWQzYzc3NzcyYWJjNTA3NCIsImVtYWlsIjoiYWRtaW4udGVuY2VudEBleGFtcGxlLmNvbSIsInJlZnJlc2giOnRydWV9.dGThY4HNTzlNWMh9oSYaP5zpzthTqqmV_yVbcd_H7GQ"
+                            },
+                            "refresh_expires_in": {
+                                "type": "integer",
+                                "description": "Refresh token validity duration in seconds.\nTypically slightly longer than access token (65 seconds).\nAllows grace period for refresh operations.\n",
+                                "example": 65,
+                                "minimum": 1
+                            }
+                        }
+                    },
+                    "examples": {
+                        "standard_response": {
+                            "summary": "Standard Refresh Response",
+                            "value": {
+                                "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                                "token_type": "bearer",
+                                "expires_in": 60,
+                                "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                                "refresh_expires_in": 65
+                            }
+                        },
+                        "custom_ttl": {
+                            "summary": "Custom TTL (longer tokens)",
+                            "value": {
+                                "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                                "token_type": "bearer",
+                                "expires_in": 900,
+                                "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                                "refresh_expires_in": 1800
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Unauthorized - Token cannot be refreshed.\n\n**Common causes:**\n- Token expired beyond grace period (typically >5 minutes)\n- Token signature invalid or tampered\n- Refresh token already used (one-time use policy)\n- User logged out (token blacklisted)\n- Token format incorrect or missing\n\n**Client action:**\n- Clear all stored tokens\n- Redirect user to login page\n- Do not retry (user must re-authenticate)\n- Show friendly message: \"Session expired, please login again\"\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "Error message indicating why refresh failed",
+                                "example": "Token has expired and can no longer be refreshed."
+                            }
+                        }
+                    },
+                    "examples": {
+                        "token_too_old": {
+                            "summary": "Token Expired Beyond Grace Period",
+                            "value": {
+                                "message": "Token has expired and can no longer be refreshed."
+                            }
+                        },
+                        "token_invalid": {
+                            "summary": "Invalid Token Signature",
+                            "value": {
+                                "message": "Token is invalid."
+                            }
+                        },
+                        "token_reused": {
+                            "summary": "Refresh Token Already Used",
+                            "value": {
+                                "message": "Token has already been refreshed."
+                            }
+                        },
+                        "token_revoked": {
+                            "summary": "User Logged Out",
+                            "value": {
+                                "message": "Token has been revoked."
+                            }
+                        },
+                        "missing_token": {
+                            "summary": "Missing Authorization Header",
+                            "value": {
+                                "message": "Unauthenticated."
+                            }
+                        },
+                        "malformed_token": {
+                            "summary": "Token Format Invalid",
+                            "value": {
+                                "message": "Token format is invalid."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "429": {
+            "description": "Too Many Requests - Rate limit exceeded.\n\n**Rate limit details:**\n- Maximum 10 refresh attempts per minute\n- Prevents refresh token abuse\n- Counter resets after 60 seconds\n\n**Common causes:**\n- Refresh logic calling in loop\n- Multiple tabs refreshing simultaneously\n- Not checking if refresh already in progress\n\n**Client action:**\n- Wait for duration specified in `retry_after`\n- Check refresh implementation for bugs\n- Implement request queuing to prevent duplicates\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "Rate limit error message",
+                                "example": "Too many refresh requests. Please try again later."
+                            },
+                            "retry_after": {
+                                "type": "integer",
+                                "description": "Seconds to wait before retry",
+                                "example": 30
+                            }
+                        }
+                    },
+                    "examples": {
+                        "rate_limited": {
+                            "summary": "Standard Rate Limit",
+                            "value": {
+                                "message": "Too many refresh requests. Please try again later.",
+                                "retry_after": 30
+                            }
+                        },
+                        "excessive_attempts": {
+                            "summary": "Excessive Attempts Detected",
+                            "value": {
+                                "message": "Too many failed refresh attempts. Please login again.",
+                                "retry_after": 60
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal Server Error - Unexpected error during token refresh.\n\n**Possible causes:**\n- Database connection failure\n- Token service unavailable\n- JWT library error\n\n**Client action:**\n- Retry refresh request once\n- If second attempt fails, clear storage and redirect to login\n- Contact support with error_id if problem persists\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "Error message",
+                                "example": "An error occurred while refreshing token."
+                            },
+                            "error_id": {
+                                "type": "string",
+                                "description": "Error tracking ID (provide to support)",
+                                "example": "err_refresh_abc123"
+                            }
+                        }
+                    },
+                    "examples": {
+                        "generic_error": {
+                            "summary": "Generic Server Error",
+                            "value": {
+                                "message": "An error occurred while refreshing token.",
+                                "error_id": "err_refresh_abc123def"
+                            }
+                        },
+                        "jwt_library_error": {
+                            "summary": "JWT Library Error",
+                            "value": {
+                                "message": "Unable to generate new token.",
+                                "error_id": "err_jwt_xyz789"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

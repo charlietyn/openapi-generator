@@ -1,0 +1,257 @@
+{
+    "summary": "Get Authenticated User Profile",
+    "description": "Retrieve complete profile information for the currently authenticated user.\n\n\nThis endpoint returns detailed information about the authenticated user including:\n- Basic profile data (id, name, email)\n- Assigned roles and permissions\n- Account metadata (creation date, verification status)\n- User preferences and settings\n- Optional: Profile photo, phone, address\n\n\n**Use this endpoint to:**\n- Display user information in navigation/header\n- Populate user profile page\n- Show current user's roles and permissions\n- Verify user identity after login\n- Check account status and settings\n- Sync user data with frontend state\n\n**Typical flow:**\n```\n1. User logs in → Gets auth token\n2. Frontend calls /api/user-profile → Gets user data\n3. Store user data in state management (Redux, Vuex, etc.)\n4. Display user info in UI (avatar, name, email)\n5. Use roles/permissions for authorization checks\n```\n\n\n**Call immediately after:**\n- Login success\n- Token refresh\n- Page reload (if token exists)\n- Profile update (to get latest data)\n\n**Auto-refresh scenarios:**\n- User updates their profile\n- Admin changes user roles\n- Email verification completed\n- Account settings modified\n\n\n**Key Differences:**\n\n| Aspect | /api/user-profile | /api/permissions |\n|--------|-------------------|------------------|\n| **Returns** | Complete user object | Only permissions list |\n| **Includes** | Name, email, roles, permissions | Just permissions |\n| **Use Case** | Display user info | Check specific permissions |\n| **Call Frequency** | Once per session | Once per session |\n| **Response Size** | Larger (full object) | Smaller (array) |\n\n**Best Practice:**\n```javascript\n// After login, call BOTH:\nawait fetchUserProfile();    // Get user data\nawait fetchPermissions();    // Get permissions for UI\n```\n\n\n**Method:** GET\n\n**Content-Type:** Not required (no body)\n\n**Required Headers:**\n- `Authorization: Bearer {token}` - Valid authentication token\n\n**Request Body:** None\n\n**Example Request:**\n```bash\nGET /api/user-profile\nHeaders:\n  Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...\n  Accept: application/json\n```\n\n\nReturns complete user profile data wrapped in `data` object.\n\n**Response Structure:**\n```json\n{\n  \"data\": {\n    \"id\": integer,\n    \"name\": string,\n    \"email\": string,\n    \"email_verified_at\": string|null,\n    \"phone\": string|null,\n    \"avatar\": string|null,\n    \"roles\": array,\n    \"permissions\": array,\n    \"created_at\": string,\n    \"updated_at\": string\n  }\n}\n```\n\n**Complete Example - Admin User:**\n```json\n{\n  \"data\": {\n    \"id\": 1,\n    \"name\": \"Admin User\",\n    \"email\": \"admin@example.com\",\n    \"email_verified_at\": \"2024-01-15T10:30:00.000000Z\",\n    \"phone\": \"+1234567890\",\n    \"avatar\": \"https://example.com/avatars/admin.jpg\",\n    \"roles\": [\n      {\n        \"id\": 1,\n        \"name\": \"admin\",\n        \"display_name\": \"Administrator\",\n        \"description\": \"Full system access\"\n      }\n    ],\n    \"permissions\": [\n      \"mod_security.users.index\",\n      \"mod_security.users.store\",\n      \"mod_security.users.update\",\n      \"mod_security.users.destroy\",\n      \"mod_security.roles.index\",\n      \"mod_security.roles.store\"\n    ],\n    \"created_at\": \"2024-01-01T00:00:00.000000Z\",\n    \"updated_at\": \"2024-12-28T15:45:00.000000Z\"\n  }\n}\n```\n\n**Example - Regular User:**\n```json\n{\n  \"data\": {\n    \"id\": 42,\n    \"name\": \"John Doe\",\n    \"email\": \"john.doe@example.com\",\n    \"email_verified_at\": \"2024-06-15T08:20:00.000000Z\",\n    \"phone\": null,\n    \"avatar\": null,\n    \"roles\": [\n      {\n        \"id\": 3,\n        \"name\": \"user\",\n        \"display_name\": \"Regular User\",\n        \"description\": \"Standard user access\"\n      }\n    ],\n    \"permissions\": [\n      \"auths.login\",\n      \"auths.logout\",\n      \"auths.user-profile\",\n      \"mod_catalog.products.index\"\n    ],\n    \"created_at\": \"2024-06-01T12:00:00.000000Z\",\n    \"updated_at\": \"2024-12-25T10:30:00.000000Z\"\n  }\n}\n```\n\n**Example - Unverified User:**\n```json\n{\n  \"data\": {\n    \"id\": 99,\n    \"name\": \"New User\",\n    \"email\": \"new.user@example.com\",\n    \"email_verified_at\": null,\n    \"phone\": null,\n    \"avatar\": null,\n    \"roles\": [\n      {\n        \"id\": 4,\n        \"name\": \"unverified\",\n        \"display_name\": \"Unverified User\",\n        \"description\": \"Limited access until email verified\"\n      }\n    ],\n    \"permissions\": [\n      \"auths.login\",\n      \"auths.logout\"\n    ],\n    \"created_at\": \"2024-12-28T16:00:00.000000Z\",\n    \"updated_at\": \"2024-12-28T16:00:00.000000Z\"\n  }\n}\n```\n\n\n\n**`id`** - User unique identifier\n- Type: Integer\n- Example: `1`, `42`, `99`\n- Use: Primary key for user references\n\n**`name`** - User's full name\n- Type: String\n- Example: `\"John Doe\"`, `\"Admin User\"`\n- Use: Display in UI, greetings\n\n**`email`** - User's email address\n- Type: String (email format)\n- Example: `\"user@example.com\"`\n- Use: Contact, login identifier\n- Note: Unique across system\n\n**`email_verified_at`** - Email verification timestamp\n- Type: String (ISO 8601) or null\n- Example: `\"2024-01-15T10:30:00.000000Z\"` or `null`\n- Use: Check if email verified\n- **Important:** `null` means unverified (may have limited access)\n\n**`phone`** - Phone number (optional)\n- Type: String or null\n- Example: `\"+1234567890\"` or `null`\n- Use: Contact, 2FA\n\n**`avatar`** - Profile photo URL (optional)\n- Type: String (URL) or null\n- Example: `\"https://example.com/avatars/user.jpg\"` or `null`\n- Use: Display in UI, navbar, comments\n- Fallback: Use initials or default avatar if null\n\n\n**Structure:**\n```json\n{\n  \"id\": integer,\n  \"name\": string,        // Role slug (machine-readable)\n  \"display_name\": string, // Role label (human-readable)\n  \"description\": string   // Role purpose\n}\n```\n\n**Common Roles:**\n- `admin` - Full system access\n- `manager` - Department/team management\n- `user` - Standard user\n- `guest` - Limited read-only access\n- `unverified` - Email not verified yet\n\n**Multiple Roles:**\nUser can have multiple roles (e.g., `[\"admin\", \"manager\"]`)\n\n\n**Format:** Array of permission strings\n```json\n[\n  \"mod_security.users.index\",\n  \"mod_security.users.store\",\n  \"auths.login\"\n]\n```\n\n**Use Cases:**\n- Quick permission checks in UI\n- Alternative to separate `/api/permissions` call\n- Included for convenience\n\n**Note:** For comprehensive permission management, prefer `/api/permissions` endpoint\n\n\n**`created_at`** - Account creation date\n- Type: String (ISO 8601)\n- Example: `\"2024-01-01T00:00:00.000000Z\"`\n- Use: Display \"Member since\", account age\n\n**`updated_at`** - Last profile update\n- Type: String (ISO 8601)\n- Example: `\"2024-12-28T15:45:00.000000Z\"`\n- Use: Track profile changes, cache invalidation\n\n\n\nReturned when authentication fails.\n\n**Common Causes:**\n- Authorization header missing\n- Token expired\n- Token invalid or tampered\n- User logged out (token blacklisted)\n- Token format incorrect\n\n**Example:**\n```json\n{\n  \"message\": \"Unauthenticated.\"\n}\n```\n\n**Action Required:**\n- Redirect user to login page\n- Clear stored tokens and user data\n- Request fresh authentication\n- Don't retry (user must re-login)\n\n\nReturned when user account is disabled or banned.\n\n**Example:**\n```json\n{\n  \"message\": \"Your account has been suspended.\",\n  \"reason\": \"Terms of service violation\",\n  \"contact\": \"support@example.com\"\n}\n```\n\n**Action Required:**\n- Show suspension message to user\n- Provide contact information\n- Logout user\n- Clear all stored data\n\n\nReturned when user account no longer exists (very rare).\n\n**Example:**\n```json\n{\n  \"message\": \"User account not found.\"\n}\n```\n\n**Action Required:**\n- Logout user immediately\n- Clear all stored data\n- Redirect to login with message\n\n\nUnexpected server error while retrieving profile.\n\n**Example:**\n```json\n{\n  \"message\": \"Unable to retrieve user profile.\",\n  \"error_id\": \"err_profile_abc123\"\n}\n```\n\n**Action Required:**\n- Retry request once\n- If persists, use cached user data\n- Show error message to user\n- Contact support with error_id\n\n\n\n```javascript\n// ============================================\n// USER PROFILE MANAGER - Complete Implementation\n// ============================================\n\nclass UserProfileManager {\n  constructor() {\n    this.user = null;\n  }\n\n  /**\n   * Fetch current user profile\n   */\n  async fetchProfile() {\n    const token = localStorage.getItem('auth_token');\n\n    if (!token) {\n      console.error('No auth token found');\n      return null;\n    }\n\n    try {\n      const response = await fetch('/api/user-profile', {\n        method: 'GET',\n        headers: {\n          'Authorization': `Bearer __JSON:token__`,\n          'Accept': 'application/json'\n        }\n      });\n\n      if (!response.ok) {\n        if (response.status === 401) {\n          console.log('Unauthorized - redirecting to login');\n          this.clear();\n          window.location.href = '/login';\n          return null;\n        }\n\n        if (response.status === 403) {\n          const error = await response.json();\n          alert(`Account suspended: ${error.reason || 'Unknown reason'}`);\n          this.clear();\n          window.location.href = '/login';\n          return null;\n        }\n\n        throw new Error(`Failed to fetch profile: ${response.status}`);\n      }\n\n      const data = await response.json();\n\n      // Store user data\n      this.user = data.data;\n\n      // Cache in localStorage\n      localStorage.setItem('user_data', JSON.stringify(this.user));\n\n      console.log(`✅ Profile loaded: ${this.user.name}`);\n      console.log(`📧 Email: ${this.user.email}`);\n      console.log(`🎭 Roles: ${this.user.roles.map(r => r.name).join(', ')}`);\n      console.log(`🔑 Permissions: ${this.user.permissions.length}`);\n\n      return this.user;\n\n    } catch (error) {\n      console.error('Error fetching profile:', error);\n\n      // Try to use cached data\n      return this.loadFromCache();\n    }\n  }\n\n  /**\n   * Load user data from cache\n   */\n  loadFromCache() {\n    const cached = localStorage.getItem('user_data');\n\n    if (cached) {\n      this.user = JSON.parse(cached);\n      console.log('📦 Loaded user from cache');\n      return this.user;\n    }\n\n    return null;\n  }\n\n  /**\n   * Get current user data\n   */\n  getUser() {\n    if (!this.user) {\n      this.loadFromCache();\n    }\n    return this.user;\n  }\n\n  /**\n   * Get user ID\n   */\n  getUserId() {\n    return this.user?.id || null;\n  }\n\n  /**\n   * Get user name\n   */\n  getUserName() {\n    return this.user?.name || 'Guest';\n  }\n\n  /**\n   * Get user email\n   */\n  getUserEmail() {\n    return this.user?.email || '';\n  }\n\n  /**\n   * Get user avatar URL\n   */\n  getAvatar() {\n    return this.user?.avatar || this.getDefaultAvatar();\n  }\n\n  /**\n   * Generate default avatar (initials)\n   */\n  getDefaultAvatar() {\n    if (!this.user?.name) return '/avatars/default.png';\n\n    const initials = this.user.name\n      .split(' ')\n      .map(word => word[0])\n      .join('')\n      .toUpperCase()\n      .slice(0, 2);\n\n    return `https://ui-avatars.com/api/?name=__JSON:initials__&background=random`;\n  }\n\n  /**\n   * Check if email is verified\n   */\n  isEmailVerified() {\n    return this.user?.email_verified_at !== null;\n  }\n\n  /**\n   * Get user roles\n   */\n  getRoles() {\n    return this.user?.roles || [];\n  }\n\n  /**\n   * Get role names\n   */\n  getRoleNames() {\n    return this.getRoles().map(role => role.name);\n  }\n\n  /**\n   * Check if user has specific role\n   */\n  hasRole(roleName) {\n    return this.getRoleNames().includes(roleName);\n  }\n\n  /**\n   * Check if user has any of the specified roles\n   */\n  hasAnyRole(...roles) {\n    const userRoles = this.getRoleNames();\n    return roles.some(role => userRoles.includes(role));\n  }\n\n  /**\n   * Check if user is admin\n   */\n  isAdmin() {\n    return this.hasRole('admin');\n  }\n\n  /**\n   * Get user permissions\n   */\n  getPermissions() {\n    return this.user?.permissions || [];\n  }\n\n  /**\n   * Check if user has permission\n   */\n  hasPermission(permission) {\n    return this.getPermissions().includes(permission);\n  }\n\n  /**\n   * Get account age in days\n   */\n  getAccountAge() {\n    if (!this.user?.created_at) return 0;\n\n    const created = new Date(this.user.created_at);\n    const now = new Date();\n    const diffTime = Math.abs(now - created);\n    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));\n\n    return diffDays;\n  }\n\n  /**\n   * Format member since date\n   */\n  getMemberSince() {\n    if (!this.user?.created_at) return 'Unknown';\n\n    const date = new Date(this.user.created_at);\n    return date.toLocaleDateString('en-US', {\n      year: 'numeric',\n      month: 'long',\n      day: 'numeric'\n    });\n  }\n\n  /**\n   * Get display name for UI\n   */\n  getDisplayName() {\n    return this.getUserName().split(' ')[0] || 'User';\n  }\n\n  /**\n   * Clear user data\n   */\n  clear() {\n    this.user = null;\n    localStorage.removeItem('user_data');\n  }\n\n  /**\n   * Update user data (after profile edit)\n   */\n  async refresh() {\n    console.log('🔄 Refreshing user profile...');\n    return await this.fetchProfile();\n  }\n}\n\n// ============================================\n// USAGE\n// ============================================\n\n// Initialize\nconst userProfile = new UserProfileManager();\n\n// Fetch on login\nasync function onLoginSuccess() {\n  await userProfile.fetchProfile();\n  updateUIWithUserData();\n}\n\n// Update UI with user data\nfunction updateUIWithUserData() {\n  const user = userProfile.getUser();\n\n  if (!user) return;\n\n  // Update navbar\n  document.getElementById('userName').textContent = userProfile.getDisplayName();\n  document.getElementById('userAvatar').src = userProfile.getAvatar();\n  document.getElementById('userEmail').textContent = userProfile.getUserEmail();\n\n  // Show admin menu if admin\n  if (userProfile.isAdmin()) {\n    document.getElementById('adminMenu').style.display = 'block';\n  }\n\n  // Show email verification banner if not verified\n  if (!userProfile.isEmailVerified()) {\n    document.getElementById('verifyEmailBanner').style.display = 'block';\n  }\n\n  // Update profile page\n  if (document.getElementById('profilePage')) {\n    document.getElementById('profileName').value = user.name;\n    document.getElementById('profileEmail').value = user.email;\n    document.getElementById('profilePhone').value = user.phone || '';\n    document.getElementById('memberSince').textContent = userProfile.getMemberSince();\n\n    // Render roles\n    const rolesHtml = user.roles\n      .map(role => `<span class=\"badge\">${role.display_name}</span>`)\n      .join(' ');\n    document.getElementById('userRoles').innerHTML = rolesHtml;\n  }\n}\n\n// On page load\ndocument.addEventListener('DOMContentLoaded', async () => {\n  const token = localStorage.getItem('auth_token');\n\n  if (token) {\n    // Load cached immediately\n    userProfile.loadFromCache();\n    updateUIWithUserData();\n\n    // Fetch fresh data\n    await userProfile.fetchProfile();\n    updateUIWithUserData();\n  }\n});\n```\n\n\n```javascript\nimport { useState, useEffect, useContext, createContext } from 'react';\nimport { useNavigate } from 'react-router-dom';\n\n// ============================================\n// USER PROFILE CONTEXT\n// ============================================\n\nconst UserProfileContext = createContext(null);\n\nexport function UserProfileProvider({ children }) {\n  const [user, setUser] = useState(null);\n  const [loading, setLoading] = useState(true);\n  const navigate = useNavigate();\n\n  useEffect(() => {\n    fetchProfile();\n  }, []);\n\n  const fetchProfile = async () => {\n    const token = localStorage.getItem('auth_token');\n\n    if (!token) {\n      setLoading(false);\n      return;\n    }\n\n    try {\n      const response = await fetch('/api/user-profile', {\n        headers: {\n          'Authorization': `Bearer __JSON:token__`,\n          'Accept': 'application/json'\n        }\n      });\n\n      if (response.ok) {\n        const data = await response.json();\n        setUser(data.data);\n        localStorage.setItem('user_data', JSON.stringify(data.data));\n      } else if (response.status === 401) {\n        localStorage.clear();\n        navigate('/login');\n      }\n    } catch (error) {\n      console.error('Error fetching profile:', error);\n\n      // Load from cache\n      const cached = localStorage.getItem('user_data');\n      if (cached) {\n        setUser(JSON.parse(cached));\n      }\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  const hasRole = (roleName) => {\n    return user?.roles?.some(role => role.name === roleName) || false;\n  };\n\n  const hasPermission = (permission) => {\n    return user?.permissions?.includes(permission) || false;\n  };\n\n  const isEmailVerified = () => {\n    return user?.email_verified_at !== null;\n  };\n\n  const getAvatar = () => {\n    if (user?.avatar) return user.avatar;\n\n    const initials = user?.name\n      ?.split(' ')\n      .map(w => w[0])\n      .join('')\n      .toUpperCase()\n      .slice(0, 2) || 'U';\n\n    return `https://ui-avatars.com/api/?name=__JSON:initials__&background=random`;\n  };\n\n  const value = {\n    user,\n    loading,\n    fetchProfile,\n    hasRole,\n    hasPermission,\n    isEmailVerified,\n    getAvatar,\n    isAdmin: () => hasRole('admin'),\n    userName: user?.name || 'Guest',\n    userEmail: user?.email || ''\n  };\n\n  return (\n    <UserProfileContext.Provider value={value}>\n      {children}\n    </UserProfileContext.Provider>\n  );\n}\n\n// Custom hook\nexport function useUserProfile() {\n  const context = useContext(UserProfileContext);\n  if (!context) {\n    throw new Error('useUserProfile must be used within UserProfileProvider');\n  }\n  return context;\n}\n\n// ============================================\n// USAGE IN COMPONENTS\n// ============================================\n\nfunction Navbar() {\n  const { user, loading, getAvatar, userName } = useUserProfile();\n\n  if (loading) return <div>Loading...</div>;\n  if (!user) return null;\n\n  return (\n    <nav>\n      <div className=\"user-info\">\n        <img src={getAvatar()} alt={userName} className=\"avatar\" />\n        <span>{userName}</span>\n      </div>\n    </nav>\n  );\n}\n\nfunction ProfilePage() {\n  const { user, isEmailVerified, hasRole } = useUserProfile();\n\n  return (\n    <div>\n      <h1>Profile</h1>\n\n      {!isEmailVerified() && (\n        <div className=\"alert\">\n          Please verify your email address\n        </div>\n      )}\n\n      <div className=\"profile-info\">\n        <p><strong>Name:</strong> {user.name}</p>\n        <p><strong>Email:</strong> {user.email}</p>\n        <p><strong>Roles:</strong> {user.roles.map(r => r.display_name).join(', ')}</p>\n      </div>\n\n      {hasRole('admin') && (\n        <div className=\"admin-section\">\n          <h2>Admin Tools</h2>\n          {/* Admin-only content */}\n        </div>\n      )}\n    </div>\n  );\n}\n\n// Protected route\nfunction AdminRoute({ children }) {\n  const { hasRole, loading } = useUserProfile();\n\n  if (loading) return <div>Loading...</div>;\n  if (!hasRole('admin')) return <div>Access Denied</div>;\n\n  return children;\n}\n```\n\n\n```javascript\nimport { ref, computed, onMounted } from 'vue';\nimport { useRouter } from 'vue-router';\n\n// composables/useUserProfile.js\nexport function useUserProfile() {\n  const user = ref(null);\n  const loading = ref(false);\n  const router = useRouter();\n\n  const fetchProfile = async () => {\n    loading.value = true;\n    const token = localStorage.getItem('auth_token');\n\n    try {\n      const response = await fetch('/api/user-profile', {\n        headers: {\n          'Authorization': `Bearer __JSON:token__`,\n          'Accept': 'application/json'\n        }\n      });\n\n      if (response.ok) {\n        const data = await response.json();\n        user.value = data.data;\n        localStorage.setItem('user_data', JSON.stringify(data.data));\n      } else if (response.status === 401) {\n        localStorage.clear();\n        router.push('/login');\n      }\n    } catch (error) {\n      console.error(error);\n      const cached = localStorage.getItem('user_data');\n      if (cached) {\n        user.value = JSON.parse(cached);\n      }\n    } finally {\n      loading.value = false;\n    }\n  };\n\n  const userName = computed(() => user.value?.name || 'Guest');\n  const userEmail = computed(() => user.value?.email || '');\n  const isEmailVerified = computed(() => user.value?.email_verified_at !== null);\n  const isAdmin = computed(() => hasRole('admin'));\n\n  const avatar = computed(() => {\n    if (user.value?.avatar) return user.value.avatar;\n\n    const initials = user.value?.name\n      ?.split(' ')\n      .map(w => w[0])\n      .join('')\n      .toUpperCase()\n      .slice(0, 2) || 'U';\n\n    return `https://ui-avatars.com/api/?name=__JSON:initials__`;\n  });\n\n  const hasRole = (roleName) => {\n    return user.value?.roles?.some(r => r.name === roleName) || false;\n  };\n\n  const hasPermission = (permission) => {\n    return user.value?.permissions?.includes(permission) || false;\n  };\n\n  onMounted(() => {\n    if (localStorage.getItem('auth_token')) {\n      fetchProfile();\n    }\n  });\n\n  return {\n    user,\n    loading,\n    fetchProfile,\n    userName,\n    userEmail,\n    isEmailVerified,\n    isAdmin,\n    avatar,\n    hasRole,\n    hasPermission\n  };\n}\n\n// In component\n<script setup>\nimport { useUserProfile } from '@/composables/useUserProfile';\n\nconst { user, userName, avatar, isEmailVerified, hasRole } = useUserProfile();\n</script>\n\n<template>\n  <div class=\"navbar\">\n    <img :src=\"avatar\" :alt=\"userName\" class=\"avatar\" />\n    <span>__VAR:userName__</span>\n\n    <div v-if=\"!isEmailVerified\" class=\"alert\">\n      Please verify your email\n    </div>\n\n    <div v-if=\"hasRole('admin')\" class=\"admin-badge\">\n      Admin\n    </div>\n  </div>\n</template>\n```\n\n\n```bash\ncurl -X GET https://api.example.com/api/user-profile \\\n  -H \"Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...\" \\\n  -H \"Accept: application/json\"\n\n{\n  \"data\": {\n    \"id\": 1,\n    \"name\": \"Admin User\",\n    \"email\": \"admin@example.com\",\n    \"email_verified_at\": \"2024-01-15T10:30:00.000000Z\",\n    \"roles\": [...],\n    \"permissions\": [...],\n    ...\n  }\n}\n```\n\n\n```php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse Illuminate\\Http\\JsonResponse;\n\nclass UserProfileController extends Controller\n{\n    /**\n     * Get authenticated user profile\n     */\n    public function show(): JsonResponse\n    {\n        $user = auth()->user();\n\n        // Load relationships\n        $user->load(['roles', 'permissions']);\n\n        // Format response\n        return response()->json([\n            'data' => [\n                'id' => $user->id,\n                'name' => $user->name,\n                'email' => $user->email,\n                'email_verified_at' => $user->email_verified_at,\n                'phone' => $user->phone,\n                'avatar' => $user->avatar\n                    ? asset(\"storage/{$user->avatar}\")\n                    : null,\n                'roles' => $user->roles->map(function ($role) {\n                    return [\n                        'id' => $role->id,\n                        'name' => $role->name,\n                        'display_name' => $role->display_name,\n                        'description' => $role->description\n                    ];\n                }),\n                'permissions' => $user->getAllPermissions()\n                    ->pluck('name')\n                    ->values(),\n                'created_at' => $user->created_at,\n                'updated_at' => $user->updated_at\n            ]\n        ]);\n    }\n}\n```\n\n\n```python\nimport requests\nfrom datetime import datetime\n\nclass UserProfile:\n    def __init__(self, api_url, token):\n        self.api_url = api_url\n        self.token = token\n        self.user = None\n\n    def fetch(self):\n        \"\"\"Fetch user profile from API\"\"\"\n        headers = {\n            'Authorization': f'Bearer {self.token}',\n            'Accept': 'application/json'\n        }\n\n        try:\n            response = requests.get(\n                f'{self.api_url}/user-profile',\n                headers=headers\n            )\n\n            if response.status_code == 200:\n                data = response.json()\n                self.user = data['data']\n                print(f'✅ Profile loaded: {self.user[\"name\"]}')\n                return True\n            else:\n                print(f'❌ Failed: {response.status_code}')\n                return False\n\n        except Exception as e:\n            print(f'Error: {e}')\n            return False\n\n    def get_name(self):\n        \"\"\"Get user name\"\"\"\n        return self.user.get('name', 'Guest') if self.user else 'Guest'\n\n    def get_email(self):\n        \"\"\"Get user email\"\"\"\n        return self.user.get('email', '') if self.user else ''\n\n    def is_email_verified(self):\n        \"\"\"Check if email is verified\"\"\"\n        return self.user.get('email_verified_at') is not None if self.user else False\n\n    def has_role(self, role_name):\n        \"\"\"Check if user has specific role\"\"\"\n        if not self.user or 'roles' not in self.user:\n            return False\n\n        return any(role['name'] == role_name for role in self.user['roles'])\n\n    def is_admin(self):\n        \"\"\"Check if user is admin\"\"\"\n        return self.has_role('admin')\n\n    def has_permission(self, permission):\n        \"\"\"Check if user has permission\"\"\"\n        if not self.user or 'permissions' not in self.user:\n            return False\n\n        return permission in self.user['permissions']\n\n    def get_account_age_days(self):\n        \"\"\"Get account age in days\"\"\"\n        if not self.user or 'created_at' not in self.user:\n            return 0\n\n        created = datetime.fromisoformat(\n            self.user['created_at'].replace('Z', '+00:00')\n        )\n        now = datetime.now(created.tzinfo)\n\n        return (now - created).days\n\nprofile = UserProfile('https://api.example.com/api', 'your-token-here')\nprofile.fetch()\n\nprint(f'Name: {profile.get_name()}')\nprint(f'Email: {profile.get_email()}')\nprint(f'Verified: {profile.is_email_verified()}')\nprint(f'Is Admin: {profile.is_admin()}')\nprint(f'Account Age: {profile.get_account_age_days()} days')\n```\n\n\n\n**Sensitive Information:**\n- Email address (personal data)\n- Phone number (personal data)\n- Profile photo (biometric data)\n- Role and permission info (access control)\n\n**Best Practices:**\n- Only request user profile when needed\n- Don't log user data to console in production\n- Clear user data on logout\n- Use HTTPS for all requests\n\n\n```javascript\n// ✅ GOOD: Secure token handling\nconst token = localStorage.getItem('auth_token');\nfetch('/api/user-profile', {\n  headers: { 'Authorization': `Bearer __JSON:token__` }\n});\n\n// ❌ BAD: Token in URL\nfetch(`/api/user-profile?token=__JSON:token__`);  // NEVER do this!\n```\n\n\n**When to cache:**\n- User data changes infrequently\n- Offline fallback needed\n- Performance optimization\n\n**When to refresh:**\n- After profile update\n- After role/permission change\n- On page reload (if token exists)\n- Periodically (e.g., every hour)\n\n```javascript\n// Auto-refresh profile every hour\nsetInterval(async () => {\n  if (localStorage.getItem('auth_token')) {\n    await userProfile.fetchProfile();\n  }\n}, 3600000); // 1 hour\n```\n\n\n**Important:** Always check `email_verified_at` status\n\n```javascript\nif (!userProfile.isEmailVerified()) {\n  // Restrict access\n  showEmailVerificationBanner();\n\n  // Disable certain features\n  disableMessaging();\n  disablePosting();\n}\n```\n\n\n**Cause:** Token not stored or expired immediately\n\n**Solutions:**\n1. Verify token is stored after login\n2. Check token expiration time\n3. Ensure Authorization header format is correct\n\n**Debug:**\n```javascript\nconsole.log('Token:', localStorage.getItem('auth_token'));\nconsole.log('Header:', `Bearer __JSON:token__`);\n```\n\n**Cause:** Cache not refreshed after profile update\n\n**Solutions:**\n1. Call `fetchProfile()` after update\n2. Invalidate cache on update\n3. Use websockets for real-time updates\n\n**Fix:**\n```javascript\nasync function updateProfile(data) {\n  await api.put('/api/profile', data);\n\n  // Refresh user data\n  await userProfile.fetchProfile();\n  updateUI();\n}\n```\n\n**Cause:** avatar field is null\n\n**Solutions:**\n1. Check if avatar is null\n2. Use default avatar fallback\n3. Generate initials avatar\n\n**Implementation:**\n```javascript\nfunction getAvatar() {\n  if (user.avatar) {\n    return user.avatar;\n  }\n\n  // Generate initials avatar\n  const initials = user.name\n    .split(' ')\n    .map(w => w[0])\n    .join('')\n    .toUpperCase();\n\n  return `https://ui-avatars.com/api/?name=__JSON:initials__&background=random`;\n}\n```\n\n**Cause:** Relationships not loaded on backend\n\n**Solutions:**\n1. Ensure backend loads relationships\n2. Check database has role assignments\n3. Verify permission sync completed\n\n**Backend fix:**\n```php\n// Load relationships\n$user->load(['roles', 'permissions']);\n\n// Or eager load\n$user = User::with(['roles', 'permissions'])->find($id);\n```\n\n**Cause:** Too many permissions returned\n\n**Solutions:**\n1. Use separate `/api/permissions` endpoint\n2. Return only permission count in profile\n3. Lazy load permissions when needed\n\n**Optimization:**\n```json\n{\n  \"data\": {\n    \"id\": 1,\n    \"name\": \"Admin\",\n    \"permissions_count\": 150,  // Just count\n    // Don't include full array\n  }\n}\n```\n\n\n\n1. **Fetch on Login**\n   ```javascript\n   async function onLogin() {\n     await login(email, password);\n     await userProfile.fetchProfile();  // Immediately\n     updateUI();\n   }\n   ```\n\n2. **Cache Wisely**\n   ```javascript\n   // Load cached immediately (instant UI)\n   userProfile.loadFromCache();\n   updateUI();\n\n   // Then fetch fresh data\n   await userProfile.fetchProfile();\n   updateUI();\n   ```\n\n3. **Display User Info**\n   ```javascript\n   // Navbar\n   <img src={userProfile.getAvatar()} />\n   <span>{userProfile.getDisplayName()}</span>\n\n   // Profile page\n   <h1>Welcome, {userProfile.getUserName()}</h1>\n   <p>Member since: {userProfile.getMemberSince()}</p>\n   ```\n\n4. **Role-Based UI**\n   ```javascript\n   if (userProfile.isAdmin()) {\n     showAdminPanel();\n   }\n\n   if (userProfile.hasRole('moderator')) {\n     showModeratorTools();\n   }\n   ```\n\n5. **Email Verification Check**\n   ```javascript\n   if (!userProfile.isEmailVerified()) {\n     showVerificationBanner();\n     restrictCertainFeatures();\n   }\n   ```\n\n\n1. **Load Relationships**\n   ```php\n   $user->load(['roles.permissions']);\n   ```\n\n2. **Optimize Response**\n   ```php\n   // Don't include unnecessary data\n   return response()->json([\n     'data' => $user->only([\n       'id', 'name', 'email', 'avatar',\n       'email_verified_at', 'created_at'\n     ])\n   ]);\n   ```\n\n3. **Handle Suspended Accounts**\n   ```php\n   if ($user->is_suspended) {\n     return response()->json([\n       'message' => 'Account suspended',\n       'reason' => $user->suspension_reason\n     ], 403);\n   }\n   ```\n\n4. **Rate Limiting**\n   ```php\n   Route::middleware(['throttle:60,1'])->group(function () {\n     Route::get('/user-profile', ...);\n   });\n   ```\n\n5. **Cache User Data**\n   ```php\n   $user = Cache::remember(\n     \"user_profile_{$userId}\",\n     3600,\n     fn() => User::with(['roles', 'permissions'])->find($userId)\n   );\n   ```\n\n\n```javascript\nfunction Navbar() {\n  const user = userProfile.getUser();\n\n  return (\n    <nav>\n      <div className=\"user-menu\">\n        <img src={userProfile.getAvatar()} alt={user.name} />\n        <div className=\"user-info\">\n          <strong>{userProfile.getDisplayName()}</strong>\n          <small>{user.email}</small>\n        </div>\n      </div>\n    </nav>\n  );\n}\n```\n\n```javascript\nfunction ProfilePage() {\n  const user = userProfile.getUser();\n\n  return (\n    <div className=\"profile\">\n      <img src={userProfile.getAvatar()} className=\"profile-avatar\" />\n\n      <h1>{user.name}</h1>\n      <p>{user.email}</p>\n\n      {!userProfile.isEmailVerified() && (\n        <div className=\"alert\">\n          <p>Please verify your email</p>\n          <button onClick={sendVerificationEmail}>\n            Resend Verification\n          </button>\n        </div>\n      )}\n\n      <div className=\"profile-stats\">\n        <div>\n          <strong>Member Since</strong>\n          <p>{userProfile.getMemberSince()}</p>\n        </div>\n        <div>\n          <strong>Account Age</strong>\n          <p>{userProfile.getAccountAge()} days</p>\n        </div>\n        <div>\n          <strong>Roles</strong>\n          <p>{user.roles.map(r => r.display_name).join(', ')}</p>\n        </div>\n      </div>\n    </div>\n  );\n}\n```\n\n```javascript\nfunction UserBadge() {\n  if (userProfile.isAdmin()) {\n    return <span className=\"badge admin\">Admin</span>;\n  }\n\n  const roles = userProfile.getRoles();\n  return roles.map(role => (\n    <span key={role.id} className=\"badge\">\n      {role.display_name}\n    </span>\n  ));\n}\n```\n\n```javascript\nfunction EmailVerificationBanner() {\n  if (userProfile.isEmailVerified()) {\n    return null;\n  }\n\n  return (\n    <div className=\"banner warning\">\n      <p>\n        Please verify your email address.\n        Check your inbox for verification link.\n      </p>\n      <button onClick={resendVerification}>\n        Resend Email\n      </button>\n    </div>\n  );\n}\n```\n\n\n| Code | Meaning | When | Client Action |\n|------|---------|------|---------------|\n| **200** | Success | Profile retrieved | Store and display data |\n| **401** | Unauthorized | Invalid/expired token | Redirect to login |\n| **403** | Forbidden | Account suspended | Show suspension message, logout |\n| **404** | Not Found | User deleted | Logout, redirect to login |\n| **500** | Server Error | Unexpected error | Retry once, use cache |\n\n\n- `POST /api/login` - Authenticate (get token)\n- `GET /api/permissions` - Get user permissions list\n- `POST /api/refresh` - Refresh authentication token\n- `POST /api/logout` - Logout (invalidate token)\n- `PUT /api/profile` - Update user profile\n- `POST /api/profile/avatar` - Upload avatar\n- `POST /api/email/verify` - Verify email address\n\n\n**Minimal Working Example:**\n```javascript\n// Fetch profile\nconst response = await fetch('/api/user-profile', {\n  headers: { 'Authorization': `Bearer __JSON:token__` }\n});\nconst { data } = await response.json();\n\n// Store\nlocalStorage.setItem('user_data', JSON.stringify(data));\n\n// Display\ndocument.getElementById('userName').textContent = data.name;\ndocument.getElementById('userAvatar').src = data.avatar || defaultAvatar;\n\n// Check role\nconst isAdmin = data.roles.some(r => r.name === 'admin');\n```\n\n\n- **Response wrapped in `data` key** (unlike permissions endpoint)\n- **Includes both roles AND permissions** for convenience\n- **Fetch immediately after login** for best UX\n- **Cache for offline fallback** but refresh regularly\n- **Check email_verified_at status** for restricted features\n- **Avatar may be null** - always have fallback\n- **Use initials avatar service** for default avatars\n- **Refresh after profile updates** to get latest data\n- **Clear on logout** to prevent data leaks\n- **Always HTTPS in production** for security\n",
+    "tags": [
+        "Authentication",
+        "User Profile"
+    ],
+    "requestBody": {
+        "required": false,
+        "description": "No request body required. User identification comes from authentication token."
+    },
+    "responses": {
+        "200": {
+            "description": "Successfully retrieved user profile.\n\nReturns complete user data including:\n- Basic info (id, name, email)\n- Verification status\n- Roles and permissions\n- Timestamps\n- Optional: avatar, phone\n\n**Important:** Response is wrapped in `data` key.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Admin User"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "admin@example.com"
+                                    },
+                                    "email_verified_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "nullable": true,
+                                        "example": "2024-01-15T10:30:00.000000Z"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "example": "+1234567890"
+                                    },
+                                    "avatar": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "nullable": true,
+                                        "example": "https://example.com/avatars/admin.jpg"
+                                    },
+                                    "roles": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "display_name": {
+                                                    "type": "string"
+                                                },
+                                                "description": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "created_at": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "updated_at": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "examples": {
+                        "admin_user": {
+                            "summary": "Admin User",
+                            "value": {
+                                "data": {
+                                    "id": 1,
+                                    "name": "Admin User",
+                                    "email": "admin@example.com",
+                                    "email_verified_at": "2024-01-15T10:30:00.000000Z",
+                                    "phone": "+1234567890",
+                                    "avatar": "https://example.com/avatars/admin.jpg",
+                                    "roles": [
+                                        {
+                                            "id": 1,
+                                            "name": "admin",
+                                            "display_name": "Administrator",
+                                            "description": "Full system access"
+                                        }
+                                    ],
+                                    "permissions": [
+                                        "mod_security.users.index",
+                                        "mod_security.users.store",
+                                        "mod_security.users.update",
+                                        "mod_security.users.destroy"
+                                    ],
+                                    "created_at": "2024-01-01T00:00:00.000000Z",
+                                    "updated_at": "2024-12-28T15:45:00.000000Z"
+                                }
+                            }
+                        },
+                        "regular_user": {
+                            "summary": "Regular User",
+                            "value": {
+                                "data": {
+                                    "id": 42,
+                                    "name": "John Doe",
+                                    "email": "john.doe@example.com",
+                                    "email_verified_at": "2024-06-15T08:20:00.000000Z",
+                                    "phone": null,
+                                    "avatar": null,
+                                    "roles": [
+                                        {
+                                            "id": 3,
+                                            "name": "user",
+                                            "display_name": "Regular User",
+                                            "description": "Standard user access"
+                                        }
+                                    ],
+                                    "permissions": [
+                                        "auths.login",
+                                        "auths.logout",
+                                        "auths.user-profile"
+                                    ],
+                                    "created_at": "2024-06-01T12:00:00.000000Z",
+                                    "updated_at": "2024-12-25T10:30:00.000000Z"
+                                }
+                            }
+                        },
+                        "unverified_user": {
+                            "summary": "Unverified User",
+                            "value": {
+                                "data": {
+                                    "id": 99,
+                                    "name": "New User",
+                                    "email": "new.user@example.com",
+                                    "email_verified_at": null,
+                                    "phone": null,
+                                    "avatar": null,
+                                    "roles": [
+                                        {
+                                            "id": 4,
+                                            "name": "unverified",
+                                            "display_name": "Unverified User",
+                                            "description": "Limited access until email verified"
+                                        }
+                                    ],
+                                    "permissions": [
+                                        "auths.login",
+                                        "auths.logout"
+                                    ],
+                                    "created_at": "2024-12-28T16:00:00.000000Z",
+                                    "updated_at": "2024-12-28T16:00:00.000000Z"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Unauthorized - No valid authentication token.\n\n**Common causes:**\n- Authorization header missing\n- Token expired\n- Token invalid or tampered\n- User logged out (token blacklisted)\n\n**Client action:**\n- Redirect to login\n- Clear stored tokens\n- Request fresh authentication\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Unauthenticated."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "403": {
+            "description": "Forbidden - Account suspended or banned.\n\n**Rare scenario:** User authenticated but account disabled.\n\n**Client action:**\n- Display suspension message\n- Logout user\n- Clear all data\n- Show contact information\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Your account has been suspended."
+                            },
+                            "reason": {
+                                "type": "string",
+                                "example": "Terms of service violation"
+                            },
+                            "contact": {
+                                "type": "string",
+                                "example": "support@example.com"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "404": {
+            "description": "Not Found - User account deleted.\n\n**Very rare:** Account no longer exists in database.\n\n**Client action:**\n- Logout immediately\n- Clear all data\n- Redirect to login with message\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "User account not found."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal Server Error - Unexpected error.\n\n**Client action:**\n- Retry once\n- Use cached data if available\n- Show error message\n- Contact support with error_id\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Unable to retrieve user profile."
+                            },
+                            "error_id": {
+                                "type": "string",
+                                "example": "err_profile_abc123"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

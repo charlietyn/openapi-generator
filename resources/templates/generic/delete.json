@@ -1,0 +1,165 @@
+{
+    "summary": "Delete __VAR:entity_singular__",
+    "description": "Permanently delete a __VAR:entity_singular__ record from the database.\n\n\n__VAR:table_description__\n\nThis endpoint removes a __VAR:entity_singular__ resource from the database.\nThe deletion can be permanent (hard delete) or temporary (soft delete)\ndepending on your application's implementation.\n\n**⚠️ WARNING:** This action cannot be undone for hard deletes.\n\n\n**Use this endpoint to:**\n- Remove unwanted __VAR:entity_singular__ records\n- Clean up test or temporary data\n- Comply with data retention policies\n- Respond to user deletion requests (GDPR)\n- Free up database space\n\n\n\n**Characteristics:**\n- Record completely removed from database\n- Cannot be recovered\n- ID can be reused\n- Foreign key constraints must be handled\n\n**When to Use:**\n- Test data cleanup\n- Data retention compliance\n- Spam/abuse content\n- User requested deletion (GDPR)\n\n\n**Characteristics:**\n- Record marked as deleted (`deleted_at` timestamp)\n- Still exists in database\n- Can be restored\n- Excluded from normal queries\n- ID preserved\n\n**When to Use:**\n- User accounts (allow restoration)\n- Important business records\n- Audit trail required\n- Compliance with retention policies\n\n**Laravel Implementation:**\n```php\n// Model with soft deletes\nuse Illuminate\\Database\\Eloquent\\SoftDeletes;\n\nclass __VAR:entity_singular__ extends Model\n{\n    use SoftDeletes;\n}\n\n// Query includes soft deleted\n__VAR:entity_singular__::withTrashed()->find($id);\n\n// Restore soft deleted\n$__VAR:entity_singular__->restore();\n\n// Force delete (permanent)\n$__VAR:entity_singular__->forceDelete();\n```\n\n\nWhen deleting a __VAR:entity_singular__, consider related resources:\n\nAutomatically delete related records:\n```sql\n-- Database level\nFOREIGN KEY (__VAR:entity_singular___id) \n  REFERENCES __VAR:entity_plural__(id) \n  ON DELETE CASCADE\n```\n\nRemove reference but keep related records:\n```sql\n-- Database level  \nFOREIGN KEY (__VAR:entity_singular___id) \n  REFERENCES __VAR:entity_plural__(id) \n  ON DELETE SET NULL\n```\n\nPrevent deletion if related records exist:\n```sql\n-- Database level\nFOREIGN KEY (__VAR:entity_singular___id) \n  REFERENCES __VAR:entity_plural__(id) \n  ON DELETE RESTRICT\n```\n\nCheck and handle related records in code:\n```php\nif ($__VAR:entity_singular__->relatedItems()->exists()) {\n    return response()->json([\n        'message' => 'Cannot delete __VAR:entity_singular__ with related items'\n    ], 422);\n}\n```\n\n\n**Method:** DELETE\n\n**URL Pattern:** `/api/__VAR:entity_url__/{id}`\n\n**Path Parameters:**\n- `id` (required) - Unique identifier of __VAR:entity_singular__ to delete\n\n**Headers:**\n- `Authorization: Bearer {token}` - Authentication token (if protected)\n- `Accept: application/json` - Expected response format\n\n**Request Body:** None required (DELETE methods typically don't have body)\n\n**Query Parameters (Optional):**\n- `force=true` - Force permanent deletion (if soft deletes enabled)\n\n\n\nReturns success message and optionally the deleted resource data.\n\n**Response:**\n```json\n{\n  \"message\": \"__VAR:entity_singular__ deleted successfully\"\n}\n```\n\n**Or with deleted data:**\n```json\n{\n  \"data\": {\n    \"id\": 123,\n    \"name\": \"Deleted Item\",\n    \"deleted_at\": \"2024-12-29T10:00:00Z\"\n  },\n  \"message\": \"__VAR:entity_singular__ deleted successfully\"\n}\n```\n\n\nEmpty response indicating successful deletion.\n\n**Response:** Empty body\n\n**Headers:**\n- HTTP Status: 204\n- Content-Length: 0\n\n**Advantages:**\n- Follows REST best practices\n- Smaller response size\n- Clear success indication\n\n\n\nReturned when __VAR:entity_singular__ with specified ID is not found.\n\n**Common Causes:**\n- ID doesn't exist in database\n- Already deleted\n- Typo in URL\n- Wrong environment\n\n**Response:**\n```json\n{\n  \"message\": \"__VAR:entity_singular__ not found.\"\n}\n```\n\n**How to Handle:**\n- Treat as successful deletion (idempotent)\n- Or show \"Already deleted\" message\n- Refresh list to reflect current state\n\n**Idempotent Approach:**\n```javascript\n// DELETE is idempotent - deleting already deleted item is OK\nconst response = await deleteItem(id);\nif (response.status === 404 || response.status === 204) {\n    // Both mean item is gone - success!\n    removeFromList(id);\n}\n```\n\n\nReturned when token is missing or invalid.\n\n**Action Required:**\n- Redirect to login\n- Clear stored tokens\n- Request fresh authentication\n\n\nReturned when user lacks permission to delete this resource.\n\n**Common Causes:**\n- User doesn't have delete permission\n- Resource belongs to different organization\n- Resource is protected/locked\n- Account suspended\n\n**Action Required:**\n- Show \"Access Denied\" message\n- Hide delete button for unauthorized users\n- Contact administrator\n\n**Example:**\n```javascript\n// Check permission before showing delete button\nif (permissions.has('__VAR:module__.__VAR:entity_plural__.destroy')) {\n    showDeleteButton();\n}\n```\n\n\nReturned when resource has dependencies preventing deletion.\n\n**Common Scenarios:**\n- Foreign key constraint violation\n- Related records exist\n- Business rule prevents deletion\n- Resource in use\n\n**Response:**\n```json\n{\n  \"message\": \"Cannot delete __VAR:entity_singular__ because it has related items.\",\n  \"related_count\": 5,\n  \"related_types\": [\"orders\", \"invoices\"]\n}\n```\n\n**How to Handle:**\n- Show specific error message\n- List related items\n- Offer cascade delete option\n- Suggest unlinking related items first\n\n**Frontend Example:**\n```javascript\nif (response.status === 409) {\n    const data = await response.json();\n    alert(\n        `Cannot delete ${item.name} because it has ${data.related_count} related items. ` +\n        `Delete related items first.`\n    );\n}\n```\n\n\nReturned when deletion would violate business rules.\n\n**Examples:**\n- Cannot delete last administrator\n- Cannot delete default category\n- Cannot delete active items\n\n**Response:**\n```json\n{\n  \"message\": \"Cannot delete the last administrator account.\",\n  \"errors\": {\n    \"id\": [\"At least one administrator must remain.\"]\n  }\n}\n```\n\n\nUnexpected server error during deletion.\n\n**Common Causes:**\n- Database connection failure\n- Cascade delete failure\n- File system error (deleting associated files)\n\n**Action Required:**\n- Retry once\n- Show error message\n- Log for debugging\n- Contact support\n\n\n\n```javascript\nasync function delete__VAR:entity_singular__(id) {\n  try {\n    const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n      method: 'DELETE',\n      headers: {\n        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,\n        'Accept': 'application/json'\n      }\n    });\n    \n    // Success cases\n    if (response.status === 204 || response.status === 200 || response.status === 404) {\n        console.log('✅ __VAR:entity_singular__ deleted');\n        return true;\n    }\n    \n    // Permission denied\n    if (response.status === 403) {\n        console.error('❌ Permission denied');\n        alert('You do not have permission to delete this __VAR:entity_singular__');\n        return false;\n    }\n    \n    // Has dependencies\n    if (response.status === 409) {\n        const data = await response.json();\n        console.error('❌ Cannot delete:', data.message);\n        alert(data.message);\n        return false;\n    }\n    \n    throw new Error(`HTTP ${response.status}`);\n    \n  } catch (error) {\n    console.error('Error deleting __VAR:entity_singular__:', error);\n    alert('Failed to delete __VAR:entity_singular__');\n    return false;\n  }\n}\n\n// Usage\nconst success = await delete__VAR:entity_singular__(123);\nif (success) {\n    removeFromList(123);\n    showSuccessMessage('__VAR:entity_singular__ deleted');\n}\n```\n\n\n```javascript\nimport { useState } from 'react';\n\nfunction __VAR:entity_singular__DeleteButton({ id, name, onDeleted }) {\n  const [deleting, setDeleting] = useState(false);\n  \n  const handleDelete = async () => {\n    // Confirmation dialog\n    const confirmed = window.confirm(\n        `Are you sure you want to delete \"__JSON:name__\"?\\n\\n` +\n        `This action cannot be undone.`\n    );\n    \n    if (!confirmed) {\n        return;\n    }\n    \n    setDeleting(true);\n    \n    try {\n      const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n        method: 'DELETE',\n        headers: {\n          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`\n        }\n      });\n      \n      if (response.ok || response.status === 204 || response.status === 404) {\n        // Success!\n        if (onDeleted) {\n          onDeleted(id);\n        }\n        showToast('__VAR:entity_singular__ deleted successfully', 'success');\n      } else if (response.status === 403) {\n        alert('You do not have permission to delete this __VAR:entity_singular__');\n      } else if (response.status === 409) {\n        const data = await response.json();\n        alert(data.message || 'Cannot delete __VAR:entity_singular__ with related items');\n      } else {\n        throw new Error('Failed to delete');\n      }\n    } catch (error) {\n      alert('Error: ' + error.message);\n    } finally {\n      setDeleting(false);\n    }\n  };\n  \n  return (\n    <button\n      onClick={handleDelete}\n      disabled={deleting}\n      className=\"btn-danger\">\n      {deleting ? 'Deleting...' : 'Delete'}\n    </button>\n  );\n}\n```\n\n\n```javascript\nimport { useState } from 'react';\n\nfunction useDelete__VAR:entity_singular__() {\n  const [undoTimeout, setUndoTimeout] = useState(null);\n  \n  const deleteWithUndo = async (id, name) => {\n    // Show undo toast\n    const toast = showUndoToast(\n        `\"__JSON:name__\" will be deleted in 5 seconds`,\n        () => {\n            // Undo clicked\n            clearTimeout(undoTimeout);\n            showToast('Deletion cancelled', 'info');\n        }\n    );\n    \n    // Set timeout for actual deletion\n    const timeout = setTimeout(async () => {\n        try {\n            const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n                method: 'DELETE',\n                headers: {\n                    'Authorization': `Bearer __JSON:token__`\n                }\n            });\n            \n            if (response.ok || response.status === 204) {\n                toast.close();\n                showToast('__VAR:entity_singular__ deleted', 'success');\n                onDeleted(id);\n            }\n        } catch (error) {\n            console.error(error);\n            showToast('Failed to delete', 'error');\n        }\n    }, 5000);\n    \n    setUndoTimeout(timeout);\n  };\n  \n  return { deleteWithUndo };\n}\n```\n\n\n```javascript\nasync function bulkDelete__VAR:entity_plural__(ids) {\n  const total = ids.length;\n  let deleted = 0;\n  let failed = 0;\n  \n  // Show progress\n  showProgress(`Deleting __JSON:total__ items...`, 0);\n  \n  for (const id of ids) {\n    try {\n      const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n        method: 'DELETE',\n        headers: {\n          'Authorization': `Bearer __JSON:token__`\n        }\n      });\n      \n      if (response.ok || response.status === 204 || response.status === 404) {\n        deleted++;\n      } else {\n        failed++;\n      }\n    } catch (error) {\n      failed++;\n    }\n    \n    // Update progress\n    const progress = ((deleted + failed) / total) * 100;\n    showProgress(`Deleted __JSON:deleted__ of __JSON:total__...`, progress);\n  }\n  \n  // Show summary\n  hideProgress();\n  alert(`Deleted: __JSON:deleted__\\nFailed: __JSON:failed__`);\n  \n  // Refresh list\n  reloadList();\n}\n\n// Usage\nconst selectedIds = [1, 2, 3, 4, 5];\nawait bulkDelete__VAR:entity_plural__(selectedIds);\n```\n\n\n```javascript\nimport { ref } from 'vue';\n\nexport function useDelete__VAR:entity_singular__() {\n  const deleting = ref(false);\n  \n  const confirmAndDelete = async (id, name) => {\n    const confirmed = confirm(\n        `Delete \"__JSON:name__\"?\\n\\nThis cannot be undone.`\n    );\n    \n    if (!confirmed) {\n        return false;\n    }\n    \n    deleting.value = true;\n    \n    try {\n      const response = await fetch(`/api/__VAR:entity_url__/__JSON:id__`, {\n        method: 'DELETE',\n        headers: {\n          'Authorization': `Bearer ${localStorage.getItem('token')}`\n        }\n      });\n      \n      if (response.ok || response.status === 204 || response.status === 404) {\n        return true;\n      }\n      \n      if (response.status === 409) {\n        const data = await response.json();\n        alert(data.message);\n      } else {\n        alert('Failed to delete');\n      }\n      \n      return false;\n      \n    } catch (error) {\n      console.error(error);\n      alert('Error deleting __VAR:entity_singular__');\n      return false;\n    } finally {\n      deleting.value = false;\n    }\n  };\n  \n  return {\n    deleting,\n    confirmAndDelete\n  };\n}\n\n// In component\n<script setup>\nconst { deleting, confirmAndDelete } = useDelete__VAR:entity_singular__();\n\nconst handleDelete = async () => {\n  const success = await confirmAndDelete(props.id, props.name);\n  if (success) {\n    emit('deleted', props.id);\n  }\n};\n</script>\n\n<template>\n  <button @click=\"handleDelete\" :disabled=\"deleting\">\n    {{ deleting ? 'Deleting...' : 'Delete' }}\n  </button>\n</template>\n```\n\n\n```bash\ncurl -X DELETE https://api.example.com/api/__VAR:entity_url__/123 \\\n  -H \"Authorization: Bearer YOUR_TOKEN\"\n\ncurl -X DELETE \"https://api.example.com/api/__VAR:entity_url__/123?force=true\" \\\n  -H \"Authorization: Bearer YOUR_TOKEN\"\n\n\n{\n  \"message\": \"__VAR:entity_singular__ deleted successfully\"\n}\n\n{\n  \"message\": \"__VAR:entity_singular__ not found.\"\n}\n\n{\n  \"message\": \"Cannot delete __VAR:entity_singular__ because it has 5 related items.\",\n  \"related_count\": 5,\n  \"related_types\": [\"orders\"]\n}\n```\n\n\n```php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Models\\__VAR:entity_singular__;\nuse Illuminate\\Http\\JsonResponse;\nuse Illuminate\\Http\\Response;\n\nclass __VAR:entity_singular__Controller extends Controller\n{\n    /**\n     * Delete __VAR:entity_singular__\n     */\n    public function destroy(int $id): Response|JsonResponse\n    {\n        // Find resource\n        $__VAR:entity_singular__ = __VAR:entity_singular__::find($id);\n        \n        // Check if exists\n        if (!$__VAR:entity_singular__) {\n            return response()->json([\n                'message' => '__VAR:entity_singular__ not found.'\n            ], 404);\n        }\n        \n        // Authorization check\n        $this->authorize('delete', $__VAR:entity_singular__);\n        \n        // Check for related items\n        if ($__VAR:entity_singular__->hasRelatedItems()) {\n            return response()->json([\n                'message' => 'Cannot delete __VAR:entity_singular__ with related items.',\n                'related_count' => $__VAR:entity_singular__->relatedItemsCount()\n            ], 409);\n        }\n        \n        // Soft delete or hard delete\n        try {\n            if (request()->query('force') === 'true') {\n                // Force delete (permanent)\n                $__VAR:entity_singular__->forceDelete();\n            } else {\n                // Soft delete (if enabled)\n                $__VAR:entity_singular__->delete();\n            }\n            \n            // Log deletion\n            Log::info('__VAR:entity_singular__ deleted', [\n                'id' => $id,\n                'user_id' => auth()->id()\n            ]);\n            \n            // Return 204 No Content (recommended)\n            return response()->noContent();\n            \n            // Or return 200 with message\n            // return response()->json([\n            //     'message' => '__VAR:entity_singular__ deleted successfully'\n            // ]);\n            \n        } catch (\\Exception $e) {\n            Log::error('Failed to delete __VAR:entity_singular__', [\n                'id' => $id,\n                'error' => $e->getMessage()\n            ]);\n            \n            return response()->json([\n                'message' => 'Failed to delete __VAR:entity_singular__'\n            ], 500);\n        }\n    }\n    \n    /**\n     * Restore soft deleted __VAR:entity_singular__\n     */\n    public function restore(int $id): JsonResponse\n    {\n        $__VAR:entity_singular__ = __VAR:entity_singular__::withTrashed()->find($id);\n        \n        if (!$__VAR:entity_singular__) {\n            return response()->json([\n                'message' => '__VAR:entity_singular__ not found.'\n            ], 404);\n        }\n        \n        if (!$__VAR:entity_singular__->trashed()) {\n            return response()->json([\n                'message' => '__VAR:entity_singular__ is not deleted.'\n            ], 422);\n        }\n        \n        $__VAR:entity_singular__->restore();\n        \n        return response()->json([\n            'data' => $__VAR:entity_singular__,\n            'message' => '__VAR:entity_singular__ restored successfully'\n        ]);\n    }\n}\n```\n\n\n```python\nimport requests\n\ndef delete___VAR:entity_singular__(id, token):\n    \"\"\"Delete __VAR:entity_singular__\"\"\"\n    url = f'https://api.example.com/api/__VAR:entity_url__/{id}'\n    headers = {\n        'Authorization': f'Bearer {token}',\n        'Accept': 'application/json'\n    }\n    \n    try:\n        response = requests.delete(url, headers=headers)\n        \n        if response.status_code in [200, 204, 404]:\n            print(f\"✅ __VAR:entity_singular__ {id} deleted\")\n            return True\n        \n        elif response.status_code == 403:\n            print(f\"❌ Permission denied\")\n            return False\n        \n        elif response.status_code == 409:\n            data = response.json()\n            print(f\"❌ Cannot delete: {data.get('message')}\")\n            return False\n        \n        else:\n            print(f\"❌ Error: {response.status_code}\")\n            return False\n            \n    except Exception as e:\n        print(f\"Exception: {e}\")\n        return False\n\nif delete___VAR:entity_singular__(123, 'your-token'):\n    print(\"Item removed successfully\")\n```\n\n\n\n**Always check permission:**\n```php\n$this->authorize('delete', $__VAR:entity_singular__);\n```\n\n**Ownership validation:**\n```php\nif ($__VAR:entity_singular__->user_id !== auth()->id()) {\n    abort(403, 'Cannot delete others\\' __VAR:entity_plural__');\n}\n```\n\n\n**Enable soft deletes:**\n```php\nuse Illuminate\\Database\\Eloquent\\SoftDeletes;\n\nclass __VAR:entity_singular__ extends Model\n{\n    use SoftDeletes;\n}\n```\n\n**Migration:**\n```php\nSchema::table('__VAR:entity_plural__', function (Blueprint $table) {\n    $table->softDeletes();  // Adds deleted_at column\n});\n```\n\n\n**Check dependencies:**\n```php\nif ($__VAR:entity_singular__->orders()->exists()) {\n    return response()->json([\n        'message' => 'Cannot delete __VAR:entity_singular__ with existing orders'\n    ], 409);\n}\n```\n\n\n**Log all deletions:**\n```php\nLog::warning('__VAR:entity_singular__ deleted', [\n    'id' => $__VAR:entity_singular__->id,\n    'name' => $__VAR:entity_singular__->name,\n    'deleted_by' => auth()->id(),\n    'deleted_at' => now()\n]);\n```\n\n\n**Prevent abuse:**\n```php\nRoute::middleware(['throttle:10,1'])->group(function () {\n    Route::delete('/__VAR:entity_plural__/{id}', ...);\n});\n```\n\n\n\n**Symptom:**\n```\nSQLSTATE[23000]: Integrity constraint violation: \nCannot delete or update a parent row\n```\n\n**Solutions:**\n1. Delete related records first\n2. Set foreign key to ON DELETE CASCADE\n3. Set foreign key to ON DELETE SET NULL\n4. Implement soft deletes\n\n**Backend Fix:**\n```php\n// Option 1: Delete related items first\n$__VAR:entity_singular__->relatedItems()->delete();\n$__VAR:entity_singular__->delete();\n\n// Option 2: Use database transaction\nDB::transaction(function () use ($__VAR:entity_singular__) {\n    $__VAR:entity_singular__->relatedItems()->delete();\n    $__VAR:entity_singular__->delete();\n});\n```\n\n\n**Cause:** Model doesn't use SoftDeletes trait\n\n**Solution:**\n```php\nuse Illuminate\\Database\\Eloquent\\SoftDeletes;\n\nclass __VAR:entity_singular__ extends Model\n{\n    use SoftDeletes;\n}\n```\n\n\n**Validation:**\n```php\n$adminCount = __VAR:entity_singular__::whereHas('roles', function ($q) {\n    $q->where('name', 'admin');\n})->count();\n\nif ($adminCount === 1 && $__VAR:entity_singular__->hasRole('admin')) {\n    return response()->json([\n        'message' => 'Cannot delete the last administrator'\n    ], 422);\n}\n```\n\n\n**Cause:** Only database record deleted, associated files remain\n\n**Solution:**\n```php\n// Delete associated files\nif ($__VAR:entity_singular__->image_path) {\n    Storage::delete($__VAR:entity_singular__->image_path);\n}\n\n// Delete all attachments\nforeach ($__VAR:entity_singular__->attachments as $attachment) {\n    Storage::delete($attachment->path);\n}\n\n// Then delete record\n$__VAR:entity_singular__->delete();\n```\n\n\n\n1. **Always Confirm Before Delete**\n```javascript\nconst confirmed = window.confirm(\n    `Delete \"${item.name}\"?\\n\\nThis cannot be undone.`\n);\nif (!confirmed) return;\n```\n\n2. **Show Loading State**\n```javascript\n<button disabled={deleting}>\n  {deleting ? 'Deleting...' : 'Delete'}\n</button>\n```\n\n3. **Remove from List Immediately (Optimistic UI)**\n```javascript\n// Remove from UI immediately\nsetItems(items.filter(i => i.id !== id));\n\n// Then call API\nconst success = await deleteItem(id);\n\n// Rollback if failed\nif (!success) {\n  setItems([...items, deletedItem]);\n}\n```\n\n4. **Implement Undo (For Better UX)**\n```javascript\n// Show toast with undo option for 5 seconds\n// Only send DELETE after timeout\n```\n\n\n1. **Use Soft Deletes for Important Data**\n```php\nuse SoftDeletes;\n```\n\n2. **Return 204 No Content**\n```php\nreturn response()->noContent();\n```\n\n3. **Use Database Transactions**\n```php\nDB::transaction(function () {\n    // Delete related items\n    // Delete main item\n});\n```\n\n4. **Fire Events**\n```php\nevent(new __VAR:entity_singular__Deleted($__VAR:entity_singular__));\n```\n\n5. **Log Deletions**\n```php\nLog::warning('__VAR:entity_singular__ deleted', ['id' => $id]);\n```\n",
+    "tags": [
+        "__VAR:module__"
+    ],
+    "parameters": [
+        {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique identifier of the __VAR:entity_singular__ to delete.\n\nMust be a valid integer that exists in the database.\n",
+            "schema": {
+                "type": "integer",
+                "example": 1
+            }
+        },
+        {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "description": "Force permanent deletion (if soft deletes are enabled).\n\n- `force=true` - Permanently delete (cannot be restored)\n- Default: Soft delete (can be restored)\n",
+            "schema": {
+                "type": "boolean",
+                "example": false
+            }
+        }
+    ],
+    "responses": {
+        "200": {
+            "description": "__VAR:entity_singular__ deleted successfully (with message).\n\nReturns success message and optionally the deleted resource data.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "__VAR:entity_singular__ deleted successfully"
+                            },
+                            "data": {
+                                "type": "object",
+                                "nullable": true,
+                                "description": "Optional - deleted resource data"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "204": {
+            "description": "__VAR:entity_singular__ deleted successfully (no content).\n\n**Recommended response.**\n\nEmpty body with HTTP 204 status indicates successful deletion.\nThis follows REST best practices for DELETE operations.\n"
+        },
+        "404": {
+            "description": "__VAR:entity_singular__ not found.\n\nReturned when:\n- ID doesn't exist in database\n- Resource already deleted\n\n**Note:** DELETE is idempotent, so 404 can be treated as success\n(resource is gone, which is the desired outcome).\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "__VAR:entity_singular__ not found."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Unauthorized - Authentication required.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Unauthenticated."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "403": {
+            "description": "Forbidden - Permission denied.\n\nUser authenticated but lacks permission to delete this resource.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "This action is unauthorized."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "409": {
+            "description": "Conflict - Cannot delete due to dependencies.\n\nReturned when:\n- Foreign key constraint prevents deletion\n- Related records exist\n- Business rule prevents deletion\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Cannot delete __VAR:entity_singular__ because it has related items."
+                            },
+                            "related_count": {
+                                "type": "integer",
+                                "example": 5
+                            },
+                            "related_types": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "example": [
+                                    "orders",
+                                    "invoices"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "422": {
+            "description": "Unprocessable Entity - Business rule violation.\n\nExamples:\n- Cannot delete last administrator\n- Cannot delete default category\n- Cannot delete active items\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Cannot delete the last administrator account."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal Server Error.\n",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Error deleting __VAR:entity_singular__."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

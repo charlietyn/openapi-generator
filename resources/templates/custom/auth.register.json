@@ -1,0 +1,158 @@
+{
+    "summary": "User Registration",
+    "description": "Register a new user account with email verification.\n\n\n1. Submit registration data\n2. System validates email uniqueness and password strength\n3. User account created with 'pending' status\n4. Verification email sent to provided address\n5. User must verify email within 24 hours\n6. Upon verification, account status changes to 'active'\n\n\n- Minimum 8 characters\n- Must contain at least one uppercase letter\n- Must contain at least one lowercase letter\n- Must contain at least one number\n- Must contain at least one special character (@$!%*#?&)\n",
+    "tags": [
+        "Authentication"
+    ],
+    "requestBody": {
+        "required": true,
+        "description": "New user registration data",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "required": [
+                        "name",
+                        "email",
+                        "password",
+                        "password_confirmation"
+                    ],
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "User full name",
+                            "minLength": 2,
+                            "maxLength": 255,
+                            "example": "John Doe"
+                        },
+                        "email": {
+                            "type": "string",
+                            "format": "email",
+                            "description": "User email address (must be unique)",
+                            "example": "john.doe@example.com"
+                        },
+                        "password": {
+                            "type": "string",
+                            "format": "password",
+                            "description": "User password (see requirements above)",
+                            "minLength": 8,
+                            "example": "SecurePass123!"
+                        },
+                        "password_confirmation": {
+                            "type": "string",
+                            "format": "password",
+                            "description": "Password confirmation (must match password)",
+                            "minLength": 8,
+                            "example": "SecurePass123!"
+                        },
+                        "phone": {
+                            "type": "string",
+                            "description": "Optional phone number",
+                            "example": "+1234567890"
+                        },
+                        "terms_accepted": {
+                            "type": "boolean",
+                            "description": "User must accept terms and conditions",
+                            "example": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "responses": {
+        "201": {
+            "description": "User registered successfully",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Registration successful. Please check your email to verify your account."
+                            },
+                            "user": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "John Doe"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "john.doe@example.com"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "pending"
+                                    },
+                                    "created_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2024-12-25T10:00:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "422": {
+            "description": "Validation error",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "The given data was invalid."
+                            },
+                            "errors": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "The email has already been taken."
+                                        ]
+                                    },
+                                    "password": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "The password must be at least 8 characters."
+                                        ]
+                                    },
+                                    "password_confirmation": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "The password confirmation does not match."
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal server error"
+        }
+    }
+}
