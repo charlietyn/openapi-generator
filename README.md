@@ -231,7 +231,7 @@ API Type (api, site, mobile)
    ]
    ```
 
-2. **Generic YAML Templates**
+2. **Generic JSON Templates**
    ```yaml
    # storage/app/yaml-templates/generic_list.yaml
    summary: "List all {entity_plural}"
@@ -448,7 +448,7 @@ MetadataExtractor
 
 DocumentationResolver
 ├── Custom Endpoint Lookup
-├── YAML Template Rendering
+├── JSON Template Rendering
 ├── Variable Replacement
 └── Fallback Generation
 

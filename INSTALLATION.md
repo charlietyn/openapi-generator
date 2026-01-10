@@ -458,7 +458,7 @@ return [
 
 ## 📦 Publishing Assets
 
-### Publish YAML Templates
+### Publish JSON Templates
 
 ```bash
 php artisan vendor:publish --tag=openapi-templates

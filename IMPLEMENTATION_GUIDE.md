@@ -41,7 +41,7 @@ Deep technical guide for developers working with Laravel OpenAPI Generator.
          │
          ├──► Documentation Resolution
          │    └─► Custom Endpoint Lookup
-         │    └─► YAML Template Rendering
+         │    └─► JSON Template Rendering
          │    └─► Automatic Fallback
          │
          ├──► Metadata Extraction
@@ -190,7 +190,7 @@ protected function detectModule(Route $route, array $parts): ?string
 **Resolution Order:**
 
 1. **Custom Endpoints** (highest priority)
-2. **YAML Templates**
+2. **JSON Templates**
 3. **Automatic Fallback**
 
 **Key Methods:**
@@ -225,7 +225,7 @@ class DocumentationResolver
     protected function loadCustomEndpoint(string $key): array;
 
     /**
-     * Check if YAML template exists
+     * Check if JSON template exists
      *
      * @param string $entity
      * @param string $action
@@ -234,7 +234,7 @@ class DocumentationResolver
     protected function hasYamlTemplate(string $entity, string $action): bool;
 
     /**
-     * Load and render YAML template
+     * Load and render JSON template
      *
      * @param string $entity
      * @param string $action
@@ -267,7 +267,7 @@ public function resolve(string $module, string $entity, string $action): array
         return $this->loadCustomEndpoint($key);
     }
     
-    // 2. Check YAML templates
+    // 2. Check JSON templates
     if ($this->hasYamlTemplate($entity, $action)) {
         $context = $this->buildContext($module, $entity, $action);
         return $this->loadYamlTemplate($entity, $action, $context);
