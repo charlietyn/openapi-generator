@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
  * Generates test scripts for Postman and Insomnia based on templates.
  * Supports both CRUD actions and custom endpoints.
  *
- * @package App\Services
+ * @package Ronu\OpenApiGenerator\Services
  */
 class TestTemplateResolver
 {

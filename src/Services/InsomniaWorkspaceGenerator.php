@@ -13,7 +13,7 @@ use Ronu\OpenApiGenerator\Helpers\PlaceholderHelper;
  *
  * ✅ CRITICAL FIX: Base Environment now includes tracking_variables
  *
- * @package App\Services
+ * @package Ronu\OpenApiGenerator\Services
  * @version 4.1.0
  */
 class InsomniaWorkspaceGenerator

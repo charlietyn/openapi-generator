@@ -12,7 +12,7 @@ use ReflectionMethod;
  *
  * CRITICAL FIX: Handles Rule classes that use $this->connection or other instance properties
  *
- * @package App\Services\Documentation
+ * @package Ronu\OpenApiGenerator\Services\Documentation
  * @version 2.2.1
  */
 class MetadataExtractor

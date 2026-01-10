@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\Log;
  * ✅ Easy to understand and maintain
  * ✅ Can use standard JSON tools
  *
- * @package App\Services\Documentation
+ * @package Ronu\OpenApiGenerator\Services\Documentation
  * @version 6.0.0 - Valid JSON Architecture
  * @author Designed for maximum portability
  */

@@ -125,7 +125,7 @@ return [
             'name' => 'Local Environment',
             'parent' => 'base',
             'variables' => [
-                'base_url' => 'http://localhost/${{projectName}}',
+                'base_url' => 'http://localhost/${{projectName}}/public',
                 'api_key' => '',
             ],
         ],
@@ -205,6 +205,25 @@ return [
         'key_prefix' => 'openapi_spec_',
     ],
 
+    /*
+   |--------------------------------------------------------------------------
+   | Path Configurations
+   |--------------------------------------------------------------------------
+   |
+   | Define paths to scan for models and request classes
+   |
+   */
+
+    'paths' => [
+        'models' => [
+            'App\\Models',
+            'Modules\\{module}\\Entities',
+        ],
+        'requests' => [
+            'App\\Http\\Requests',
+            'Modules\\{module}\\Http\\Requests',
+        ],
+    ],
     /*
     |--------------------------------------------------------------------------
     | Route Filtering

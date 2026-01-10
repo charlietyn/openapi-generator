@@ -18,7 +18,7 @@ use Ronu\OpenApiGenerator\Helpers\PlaceholderHelper;
  * - Improved action detection from URI
  * - Better handling of named vs unnamed routes
  *
- * @package App\Services
+ * @package Ronu\OpenApiGenerator\Services
  */
 class OpenApiServices
 {

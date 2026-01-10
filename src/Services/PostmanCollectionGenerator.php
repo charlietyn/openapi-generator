@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
  * - Body generation with empty values
  * - Environment support
  *
- * @package App\Services
+ * @package Ronu\OpenApiGenerator\Services
  */
 class PostmanCollectionGenerator
 {

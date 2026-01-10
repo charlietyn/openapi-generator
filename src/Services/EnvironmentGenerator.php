@@ -13,7 +13,7 @@ use Ronu\OpenApiGenerator\Helpers\PlaceholderHelper;
  * Generates environment configurations for Postman and Insomnia.
  * Supports hierarchical environments with parent-child inheritance.
  *
- * @package App\Services
+ * @package Ronu\OpenApiGenerator\Services
  */
 class EnvironmentGenerator
 {

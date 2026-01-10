@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
  * 2. Generic JSON template (generic/{action}.json)
  * 3. Fallback
  *
- * @package App\Services\Documentation
+ * @package Ronu\OpenApiGenerator\Services\Documentation
  * @version 3.0.0 - JSON Templates
  */
 class TemplateDocumentationResolver
