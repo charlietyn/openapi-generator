@@ -725,7 +725,6 @@ Ensure tracking variables are in **Base Environment only**:
     ],
 ],
 ```
-
 ---
 
 ## 🔄 Upgrading
