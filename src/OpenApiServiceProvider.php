@@ -3,6 +3,7 @@
 namespace Ronu\OpenApiGenerator;
 
 use Illuminate\Support\ServiceProvider;
+use Ronu\OpenApiGenerator\Commands\GenerateOpenApiSpec;
 use Ronu\OpenApiGenerator\Services\OpenApiServices;
 
 
@@ -15,15 +16,30 @@ class OpenApiServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Register the OpenAPI Generator as a singleton
+        // Register services
         $this->app->singleton(OpenApiServices::class, function ($app) {
             return new OpenApiServices();
         });
 
-        // Merge configuration
+        // ✅ CORRECT: Use proper package config path
         $this->mergeConfigFrom(
-            __DIR__ . '/../../config/openapi.php',
+            __DIR__ . '/../config/openapi.php',
             'openapi'
+        );
+
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/openapi-docs.php',
+            'openapi-docs'
+        );
+
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/openapi-tests.php',
+            'openapi-tests'
+        );
+
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/openapi-templates.php',
+            'openapi-templates'
         );
     }
 
@@ -37,12 +53,20 @@ class OpenApiServiceProvider extends ServiceProvider
         // Publish configuration
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                __DIR__ . '/../../config/openapi.php' => config_path('openapi.php'),
+                __DIR__ . '/../config/openapi.php' => config_path('openapi.php'),
+                __DIR__ . '/../config/openapi-docs.php' => config_path('openapi-docs.php'),
+                __DIR__ . '/../config/openapi-tests.php' => config_path('openapi-tests.php'),
+                __DIR__ . '/../config/openapi-templates.php' => config_path('openapi-templates.php'),
             ], 'openapi-config');
+
+            $this->publishes([
+                __DIR__ . '/../resources/templates' => resource_path('openapi/templates'),
+            ], 'openapi-templates');
+
 
             // Register commands
             $this->commands([
-                \App\Console\Commands\GenerateOpenApiSpec::class,
+               GenerateOpenApiSpec::class,
             ]);
         }
 

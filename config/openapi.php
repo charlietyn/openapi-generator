@@ -367,4 +367,17 @@ return [
             ],
         ],
     ],
+    /*
+|--------------------------------------------------------------------------
+| Routes Configuration (ADD THIS SECTION)
+|--------------------------------------------------------------------------
+|
+| Configure HTTP routes for documentation access
+|
+*/
+    'routes' => [
+        'enabled' => env('OPENAPI_ROUTES_ENABLED', true),
+        'prefix' => env('OPENAPI_ROUTES_PREFIX', 'documentation'),
+        'middleware' => explode(',', env('OPENAPI_ROUTES_MIDDLEWARE', '')),
+    ],
 ];

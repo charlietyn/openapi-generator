@@ -118,6 +118,9 @@ return [
 
         // Cache rendered templates
         'cache_enabled' => env('OPENAPI_TEMPLATES_CACHE', true),
+
+        // Cache TTL in seconds
+        'cache_ttl' => env('OPENAPI_TEMPLATE_CACHE_TTL', 3600),
     ],
 
     /**

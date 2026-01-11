@@ -62,7 +62,13 @@ class TemplateDocumentationResolver
             config('openapi-templates.debug', false)
         );
         $this->extractor = new MetadataExtractor();
-        $this->templatesPath = resource_path('openapi/templates');
+
+        $userTemplatesPath = resource_path('openapi/templates');
+        $packageTemplatesPath = __DIR__ . '/../../resources/templates';
+
+        $this->templatesPath = file_exists($userTemplatesPath)
+            ? $userTemplatesPath
+            : $packageTemplatesPath;
         $this->cacheEnabled = config('openapi-templates.cache_enabled', true);
 
         $this->ensureTemplatesDirectory();
@@ -297,17 +303,38 @@ class TemplateDocumentationResolver
      */
     protected function ensureTemplatesDirectory(): void
     {
-        $directories = [
-            $this->templatesPath,
-            $this->templatesPath . '/generic',
-            $this->templatesPath . '/custom',
-        ];
-
-        foreach ($directories as $dir) {
-            if (!File::isDirectory($dir)) {
-                File::makeDirectory($dir, 0755, true);
-                Log::channel('openapi')->info('Created templates directory', ['path' => $dir]);
-            }
+        // Don't create directory if using package templates
+        if (str_contains($this->templatesPath, 'vendor')) {
+            return;
         }
+
+        // Create user templates directory if needed
+        if (!file_exists($this->templatesPath)) {
+            mkdir($this->templatesPath, 0755, true);
+
+            // Create subdirectories
+            mkdir($this->templatesPath . '/generic', 0755, true);
+            mkdir($this->templatesPath . '/custom', 0755, true);
+        }
+    }
+
+    /**
+     * Get template file path with fallback
+     */
+    protected function getTemplatePath(string $templateName): ?string
+    {
+        // Priority 1: User-published templates
+        $userPath = resource_path("openapi/templates/{$templateName}");
+        if (file_exists($userPath)) {
+            return $userPath;
+        }
+
+        // Priority 2: Package templates
+        $packagePath = __DIR__ . "/../../resources/templates/{$templateName}";
+        if (file_exists($packagePath)) {
+            return $packagePath;
+        }
+
+        return null;
     }
 }
