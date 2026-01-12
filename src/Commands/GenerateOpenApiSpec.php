@@ -28,7 +28,7 @@ class GenerateOpenApiSpec extends Command
                             {--format=json : Output format (json or yaml)}
                             {--output= : Output file path}
                             {--no-cache : Disable cache}
-                            {--api-type=* : Filter by API type (api, site, movile)}
+                            {--api-type=* : Filter by API type (api, site, mobile)}
                             {--with-postman : Generate Postman collection}
                             {--with-insomnia : Generate Insomnia workspace}
                             {--environment=artisan : Environment to use (artisan, local, production)}';
@@ -66,7 +66,7 @@ class GenerateOpenApiSpec extends Command
         $format = $this->option('format');
         $output = $this->option('output');
         $useCache = !$this->option('no-cache');
-        $apiTypes = $this->option('api-type');
+        $apiTypes = $this->normalizeApiTypes($this->option('api-type'));
         $withPostman = $this->option('with-postman');
         $withInsomnia = $this->option('with-insomnia');
         $environment = $this->option('environment');
@@ -204,5 +204,31 @@ class GenerateOpenApiSpec extends Command
 
             return 1;
         }
+    }
+
+    /**
+     * Normalize API type aliases to the current keys.
+     *
+     * @param array $types
+     * @return array
+     */
+    private function normalizeApiTypes(array $types): array
+    {
+        $normalized = [];
+        $hasLegacyMobile = false;
+
+        foreach ($types as $type) {
+            if ($type === 'movile') {
+                $hasLegacyMobile = true;
+                $type = 'mobile';
+            }
+            $normalized[] = $type;
+        }
+
+        if ($hasLegacyMobile) {
+            $this->warn("API type 'movile' is deprecated. Use 'mobile' instead.");
+        }
+
+        return array_values(array_unique($normalized));
     }
 }

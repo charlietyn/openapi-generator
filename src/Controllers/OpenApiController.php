@@ -40,7 +40,7 @@ class OpenApiController extends Controller
      *
      * Query Parameters:
      * - format: json|yaml (for OpenAPI format)
-     * - api_type: api|site|movile (comma-separated for multiple)
+     * - api_type: api|site|mobile (comma-separated for multiple)
      * - environment: artisan|local|production
      *
      * @param string $format Format (json, yaml, postman, insomnia)
@@ -177,6 +177,7 @@ class OpenApiController extends Controller
         }
 
         $types = array_map('trim', explode(',', $typeParam));
+        $types = array_map(fn($type) => $type === 'movile' ? 'mobile' : $type, $types);
         $validTypes = array_keys(config('openapi.api_types', []));
         $types = array_intersect($types, $validTypes);
 
@@ -355,10 +356,10 @@ class OpenApiController extends Controller
                 'environments' => route('openapi.environments', ['format' => 'postman']),
             ],
             'example_usage' => [
-                'Filter by API type' => route('openapi.spec', ['format' => 'json']) . '?api_type=api',
-                'Multiple API types' => route('openapi.spec', ['format' => 'json']) . '?api_type=api,movile',
-                'With environment' => route('openapi.spec', ['format' => 'json']) . '?environment=production',
-                'Postman collection for mobile' => route('openapi.postman') . '?api_type=movile&environment=production',
+                'Filter by API type' => route('openapi.generate', ['format' => 'json']) . '?api_type=api',
+                'Multiple API types' => route('openapi.generate', ['format' => 'json']) . '?api_type=api,mobile',
+                'With environment' => route('openapi.generate', ['format' => 'json']) . '?environment=production',
+                'Postman collection for mobile' => route('openapi.postman') . '?api_type=mobile&environment=production',
             ],
         ]);
     }
