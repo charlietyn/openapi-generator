@@ -324,7 +324,7 @@ class OpenApiController extends Controller
     {
         $specUrl = route('openapi.generate', ['format' => 'json']);
 
-        return view('openapi.ui', compact('specUrl'));
+        return view('openapi::openapi.ui', compact('specUrl'));
     }
 
     /**
