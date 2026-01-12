@@ -53,15 +53,15 @@ class OpenApiServices
     /**
      * Set API types to filter
      *
-     * @param array $types Array of API type keys (e.g., ['api', 'movile'])
+     * @param array $types Array of API type keys (e.g., ['api', 'mobile'])
      * @return self
      */
     public function setApiTypeFilter(array $types): self
     {
-        $this->apiTypeFilter = $types;
+        $this->apiTypeFilter = $this->normalizeApiTypes($types);
 
         Log::channel('openapi')->info('API type filter set', [
-            'types' => $types,
+            'types' => $this->apiTypeFilter,
             'available_types' => array_keys(config('openapi.api_types')),
         ]);
 
@@ -78,10 +78,11 @@ class OpenApiServices
         string  $format = 'openapi'
     ): array
     {
-        $this->apiTypeFilter = $apiTypes;
+        $normalizedApiTypes = $this->normalizeApiTypes($apiTypes);
+        $this->apiTypeFilter = $normalizedApiTypes;
         $this->environment = $environment ?? config('openapi.default_environment');
 
-        $cacheKey = $this->buildCacheKey($apiTypes, $environment, $format);
+        $cacheKey = $this->buildCacheKey($normalizedApiTypes, $environment, $format);
 
         if ($useCache && config('openapi.cache.enabled')) {
             $cached = Cache::get($cacheKey);
@@ -106,6 +107,33 @@ class OpenApiServices
         }
 
         return $result;
+    }
+
+    /**
+     * Normalize API type aliases to the current keys.
+     */
+    private function normalizeApiTypes(?array $types): ?array
+    {
+        if (empty($types)) {
+            return $types;
+        }
+
+        $normalized = [];
+        $hasLegacyMobile = false;
+
+        foreach ($types as $type) {
+            if ($type === 'movile') {
+                $hasLegacyMobile = true;
+                $type = 'mobile';
+            }
+            $normalized[] = $type;
+        }
+
+        if ($hasLegacyMobile) {
+            Log::channel('openapi')->warning("API type 'movile' is deprecated. Use 'mobile' instead.");
+        }
+
+        return array_values(array_unique($normalized));
     }
 
     /**

@@ -168,9 +168,9 @@ return [
             'middleware' => ['api'],
             'enabled' => true,
         ],
-        'movile' => [
-            'prefix' => 'movile',
-            'file' => 'api.movile.php',
+        'mobile' => [
+            'prefix' => 'mobile',
+            'file' => 'api.mobile.php',
             'description' => 'Mobile API - Mobile application endpoints',
             'folder_name' => 'API Mobile',
             'icon' => '📱',

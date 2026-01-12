@@ -507,6 +507,8 @@ GET /documentation/openapi.json?api_type=api,mobile
 GET /documentation/postman?api_type=site
 ```
 
+**Backward compatibility note**: the legacy API type key `movile` is still accepted as a temporary alias for `mobile` in CLI flags and HTTP query parameters, but it is deprecated and may be removed in a future major release.
+
 ### Specifying Environment
 
 ```bash
