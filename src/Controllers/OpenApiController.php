@@ -101,7 +101,7 @@ class OpenApiController extends Controller
      */
     public function postman(\Illuminate\Http\Request $request): \Illuminate\Http\Response
     {
-        $apiTypes = $this->parseApiTypes($request->query('type'));
+        $apiTypes = $this->parseApiTypes($request->query('api_type'));
         $environment = $request->query('environment', 'artisan');
 
         $this->generator->setApiTypeFilter($apiTypes);
@@ -125,7 +125,7 @@ class OpenApiController extends Controller
      */
     public function insomnia(\Illuminate\Http\Request $request): \Illuminate\Http\Response
     {
-        $apiTypes = $this->parseApiTypes($request->query('type'));
+        $apiTypes = $this->parseApiTypes($request->query('api_type'));
         $environment = $request->query('environment', 'artisan');
 
         $this->generator->setApiTypeFilter($apiTypes);
@@ -343,6 +343,10 @@ class OpenApiController extends Controller
             'available_formats' => ['openapi', 'postman', 'insomnia'],
             'available_api_types' => array_keys($apiTypes),
             'available_environments' => $environments,
+            'query_parameters' => [
+                'api_type' => 'Filter by API type (comma-separated list).',
+                'environment' => 'Select the environment (default from config).',
+            ],
             'endpoints' => [
                 'openapi_json' => route('openapi.spec', ['format' => 'json']),
                 'openapi_yaml' => route('openapi.spec', ['format' => 'yaml']),
