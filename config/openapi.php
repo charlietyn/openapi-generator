@@ -58,7 +58,7 @@ return [
     |
     */
 
-    'security_schemes' => [
+    'security' => [
         'BearerAuth' => [
             'type' => 'http',
             'scheme' => 'bearer',

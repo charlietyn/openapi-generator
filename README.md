@@ -1,114 +1,76 @@
 # Laravel OpenAPI Generator
 
-[![Latest Version](https://img.shields.io/packagist/v/ronu/laravel-openapi-generator.svg?style=flat-square)](https://packagist.org/packages/ronu/laravel-openapi-generator)
-[![Total Downloads](https://img.shields.io/packagist/dt/ronu/laravel-openapi-generator.svg?style=flat-square)](https://packagist.org/packages/ronu/laravel-openapi-generator)
-[![License](https://img.shields.io/packagist/l/ronu/laravel-openapi-generator.svg?style=flat-square)](https://packagist.org/packages/ronu/laravel-openapi-generator)
+<p align="center">
+    <img src="https://img.shields.io/packagist/v/ronu/laravel-openapi-generator.svg?style=flat-square" alt="Latest Version">
+    <img src="https://img.shields.io/packagist/dt/ronu/laravel-openapi-generator.svg?style=flat-square" alt="Total Downloads">
+    <img src="https://img.shields.io/packagist/l/ronu/laravel-openapi-generator.svg?style=flat-square" alt="License">
+    <img src="https://img.shields.io/badge/Laravel-10%20%7C%2011%20%7C%2012-FF2D20?style=flat-square&logo=laravel" alt="Laravel">
+    <img src="https://img.shields.io/badge/PHP-8.1%2B-777BB4?style=flat-square&logo=php" alt="PHP">
+</p>
 
-**The ultimate automatic API documentation generator for Laravel applications**
-
-Generate complete, production-ready API documentation in **three formats** with **99% automation**. No annotations, no manual work, just intelligent extraction from your existing Laravel code.
+<p align="center">
+    <strong>The ultimate automatic API documentation generator for Laravel</strong><br>
+    Generate complete, production-ready documentation in <strong>three formats</strong> with <strong>99% automation</strong>
+</p>
 
 ---
 
-## 🎯 What Makes This Different?
+## 🎯 Why This Package?
 
-Most documentation tools require you to annotate every controller method, every parameter, every response. This package takes a different approach:
+Most documentation tools require extensive annotations, complex configurations, or manual work. **This package takes a different approach**:
 
-- ✅ **Zero Annotations** - Automatically extracts from FormRequests, Models, Routes
+- ✅ **Zero Annotations** - Extract everything from existing code
 - ✅ **Three Formats** - OpenAPI 3.0.3, Postman Collection v2.1, Insomnia Workspace v4
-- ✅ **Smart Extraction** - 4-strategy cascade handles complex validation rules
-- ✅ **Modular Architecture** - Perfect for Nwidart modularized Laravel apps
-- ✅ **Battle-Tested** - From 20% accuracy to 95%+ in production
-
----
-
-## 📋 Generated Output
-
-### 1. OpenAPI 3.0.3 Specification
-```yaml
-openapi: 3.0.3
-info:
-  title: Your API
-  version: 1.0.0
-servers:
-  - url: http://127.0.0.1:8000
-    description: Artisan server
-paths:
-  /api/users:
-    get:
-      summary: List all users
-      tags: [security, users]
-      # ... complete spec with parameters, responses, examples
-```
-
-### 2. Postman Collection v2.1
-- Complete request collection organized by modules
-- Pre-configured environments (Artisan, Local, Production)
-- Automatic test scripts for response validation
-- Global variable tracking (`last_user_id`, etc.)
-
-### 3. Insomnia Workspace v4
-- Design-first workspace with full API spec
-- Integrated environments with variable inheritance
-- Request organization matching your module structure
-- Bearer token management
-
----
-
-## 🚀 Quick Start
-
-### Installation
+- ✅ **99% Automatic** - Intelligent extraction from FormRequests, Models, and Routes
+- ✅ **Modular Support** - First-class support for Nwidart modularized Laravel apps
+- ✅ **Battle-Tested** - Improved from 20% accuracy to 95%+ in production use
 
 ```bash
-composer require ronu/laravel-openapi-generator
-```
-
-### Publish Configuration
-
-```bash
-php artisan vendor:publish --tag=openapi-config
-php artisan vendor:publish --tag=openapi-templates
-```
-
-### Generate Documentation
-
-```bash
-# Generate all formats
+# One command to rule them all
 php artisan openapi:generate --all
-
-# Generate specific format
-php artisan openapi:generate --with-postman
-php artisan openapi:generate --with-insomnia
-
-# Filter by API type
-php artisan openapi:generate --all --api-type=api --api-type=mobile
 ```
 
-### Access Documentation
+That's it. Your API documentation is ready in OpenAPI, Postman, and Insomnia formats.
 
-```
+---
+
+## 📚 Table of Contents
+
+- [Features](#-features)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Documentation Formats](#-documentation-formats)
+- [Configuration](#-configuration)
+- [Advanced Usage](#-advanced-usage)
+- [Examples](#-examples)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+---
+
+## ✨ Features
+
+### 1. **Multi-Format Export**
+Generate documentation in three industry-standard formats:
+
+```bash
+# OpenAPI 3.0.3 (JSON/YAML)
 GET /documentation/openapi.json
 GET /documentation/openapi.yaml
+
+# Postman Collection v2.1
 GET /documentation/postman
+
+# Insomnia Workspace v4
 GET /documentation/insomnia
 ```
 
----
+### 2. **Intelligent Metadata Extraction**
 
-## ✨ Key Features
-
-### 1. **Intelligent Metadata Extraction**
-
-Automatically extracts from:
-
-- **Eloquent Models** - Field types, fillable attributes, relationships
-- **FormRequests** - Validation rules with scenario detection
-- **Routes** - HTTP methods, URIs, middleware, parameters
-- **Custom Rules** - Even complex rules with database dependencies
-
-**Example:**
+**From FormRequests**:
 ```php
-// Your FormRequest
+// Your existing validation rules
 class CreateUserRequest extends FormRequest
 {
     public function rules()
@@ -116,392 +78,687 @@ class CreateUserRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'role_id' => ['required', Rule::exists('roles', 'id')],
+            'age' => 'nullable|integer|min:18',
         ];
     }
 }
 
-// Generated automatically:
+// Automatically becomes
 {
-  "name": "",           // string, required, max 255
-  "email": "",          // email format, unique validation
-  "role_id": 0          // integer, must exist in roles table
+    "name": { "type": "string", "maxLength": 255 },
+    "email": { "type": "string", "format": "email" },
+    "age": { "type": "integer", "minimum": 18, "nullable": true }
 }
 ```
 
-### 2. **4-Strategy Cascade for Complex Rules**
-
-Handles validation rules with constructor dependencies:
-
+**From Models**:
 ```php
-Rule::unique($this->connection . '.table', 'field')
-```
-
-**Extraction Strategies:**
-1. ✅ Normal instantiation
-2. ✅ Mock dependency injection via Reflection
-3. ✅ Reflection without constructor invocation
-4. ✅ File parsing as last resort
-
-### 3. **Scenario-Based Documentation**
-
-Different validation rules for different contexts:
-
-```php
-// Route definition
-Route::post('/users', [UserController::class, 'store'])
-    ->middleware('inject:_scenario=create');
-
-Route::post('/users/bulk', [UserController::class, 'bulkCreate'])
-    ->middleware('inject:_scenario=bulk_create');
-
-// UserRules.php
-public static function rules(): array
+// Your existing Eloquent model
+class User extends Model
 {
-    return [
-        'create' => [
-            'name' => 'required|string',
-            'email' => 'required|email',
-        ],
-        'bulk_create' => [
-            'users' => 'required|array',
-            'users.*.name' => 'required|string',
-            'users.*.email' => 'required|email',
-        ],
-    ];
+    protected $fillable = ['name', 'email', 'status'];
+    
+    public function posts() {
+        return $this->hasMany(Post::class);
+    }
 }
+
+// Automatically extracts
+- Field names and types
+- Fillable attributes
+- Relations (hasMany, belongsTo, etc.)
+- Soft deletes detection
 ```
 
-**Result:** Each endpoint gets the correct request body structure.
+### 3. **Modular Architecture**
 
-### 4. **GLOBAL vs LOCAL Variables**
-
-Smart detection of parameter types:
-
-```yaml
-# GLOBAL variables (tracked across requests)
-/api/users/{id}           → {{ _.last_user_id }}
-/api/products/{id}        → {{ _.last_product_id }}
-
-# LOCAL variables (endpoint-specific)
-/api/users/search/{term}  → {{ _.term }}
-```
-
-**When to use GLOBAL:**
-- Standard CRUD operations (show, update, delete)
-- Parameter name is `id`
-- Configured in `tracking_variables`
-
-**When to use LOCAL:**
-- Custom actions
-- Non-ID parameters
-- Query parameters
-
-### 5. **Modular Architecture Support**
-
-Perfect for Nwidart modules:
+Perfect for applications organized with [Nwidart Laravel Modules](https://github.com/nWidart/laravel-modules):
 
 ```
 API Type (api, site, mobile)
-  └─ Module (security, catalog, sales)
+  └─ Module (Security, Catalog, Sales)
       └─ Entity (users, products, orders)
           └─ Actions (list, show, create, update, delete, custom)
 ```
 
-**Example:**
+### 4. **Smart Validation Rule Handling**
+
+Handles complex Laravel validation rules using a **4-strategy cascade**:
+
+```php
+// Even complex rules like this
+Rule::unique($this->connection, 'table', 'field')
+    ->ignore($this->route('id'))
+    ->where(fn($q) => $q->where('status', 'active'))
+
+// Are extracted correctly through
+1. Normal instantiation
+2. Mock dependency injection
+3. Reflection without constructor
+4. File parsing (fallback)
 ```
-[API] security.users.list
-[SITE] catalog.products.show
-[MOBILE] sales.orders.create
+
+### 5. **Environment Management**
+
+Generate pre-configured environments for different stages:
+
+```bash
+# Postman: 3 separate environment files
+postman-env-artisan.json     # http://127.0.0.1:8000
+postman-env-local.json       # http://localhost/project
+postman-env-production.json  # https://api.production.com
+
+# Insomnia: Integrated workspace with hierarchical environments
+- Base Environment (shared variables)
+  ├─ Artisan Environment
+  ├─ Local Environment
+  └─ Production Environment
 ```
 
-### 6. **Template-Based Customization**
+### 6. **Automatic Test Generation**
 
-**3-Level Documentation System:**
-
-1. **Custom Endpoints** (highest priority)
-   ```php
-   // config/openapi-docs.php
-   'custom_endpoints' => [
-       'auth.login' => [
-           'summary' => 'User authentication',
-           'description' => 'Login with email and password',
-           'request_example' => ['email' => '', 'password' => ''],
-       ],
-   ]
-   ```
-
-2. **Generic JSON Templates**
-   ```yaml
-   # storage/app/yaml-templates/generic_list.yaml
-   summary: "List all {entity_plural}"
-   description: "Retrieve paginated list of {entity_plural}"
-   parameters:
-     - name: page
-       in: query
-       schema: {type: integer}
-   ```
-
-3. **Automatic Fallback**
-   - Always generates basic documentation from routes
-
-### 7. **Automatic Test Generation**
-
-Dynamic test scripts for Postman and Insomnia:
+Every request comes with tests:
 
 ```javascript
-// Generated for Postman
-pm.test("Status code is 200", function () {
-    pm.response.to.have.status(200);
+// Postman tests
+pm.test("Status is 200", function() { 
+    pm.response.to.have.status(200); 
 });
-
-pm.test("Response has data", function () {
-    pm.expect(pm.response.json()).to.have.property('data');
+pm.test("Response has data", function() { 
+    pm.expect(pm.response.json()).to.have.property('data'); 
 });
+pm.globals.set('last_user_id', pm.response.json().data.id);
 
-// Save ID for next requests
-if (pm.response.json().data && pm.response.json().data.id) {
-    pm.globals.set("last_user_id", pm.response.json().data.id);
-}
+// Insomnia tests (similar format)
 ```
 
-**Configurable via:**
-```php
-// config/openapi-tests.php
-'templates' => [
-    'store' => [
-        'status_201',
-        'has_data',
-        'save_to_global_var',
-    ],
-]
+### 7. **API Type Filtering**
+
+Filter documentation by API type:
+
+```bash
+# Generate only API admin documentation
+php artisan openapi:generate --all --api-type=api
+
+# Generate for mobile and public site
+php artisan openapi:generate --all --api-type=mobile --api-type=site
+
+# Via URL
+GET /documentation/openapi.json?api_type=api,mobile
 ```
-
-### 8. **Multi-Environment Support**
-
-**Environment Hierarchy:**
-```
-Base Environment (variables + tracking)
-  ├─ Artisan (http://127.0.0.1:8000)
-  ├─ Local (http://localhost/project)
-  └─ Production (https://project.com)
-```
-
-**Inheritance:**
-- Child environments inherit from Base
-- `tracking_variables` ONLY in Base
-- Override variables in children
-
-**Output:**
-- **Postman:** 3 separate JSON files
-- **Insomnia:** 4 environments in workspace (Base + 3 children)
 
 ---
 
-## 📖 Documentation
+## 📦 Installation
 
-- [Installation Guide](INSTALLATION.md) - Complete setup instructions
-- [Implementation Guide](IMPLEMENTATION_GUIDE.md) - Deep dive for developers
-- [Configuration Reference](#configuration)
-- [Examples](#examples)
+### Requirements
 
----
+- PHP 8.1 or higher
+- Laravel 10.x, 11.x, or 12.x
+- Composer 2.0+
 
-## ⚙️ Configuration
+### Step 1: Install Package
 
-### Basic Configuration
+```bash
+composer require ronu/laravel-openapi-generator
+```
+
+The service provider will be automatically registered via Laravel's auto-discovery.
+
+### Step 2: Publish Configuration
+
+```bash
+# Publish configuration files
+php artisan vendor:publish --tag=openapi-config
+
+# Publish template files (optional, for customization)
+php artisan vendor:publish --tag=openapi-templates
+```
+
+This creates:
+- `config/openapi.php` - Main configuration
+- `config/openapi-docs.php` - Documentation templates
+- `config/openapi-tests.php` - Test generation
+- `resources/openapi/templates/` - Customizable templates (optional)
+
+### Step 3: Configure (Optional)
+
+Edit `config/openapi.php`:
 
 ```php
-// config/openapi.php
 return [
     'info' => [
         'title' => env('APP_NAME', 'Laravel API'),
         'version' => '1.0.0',
-        'description' => 'Complete API documentation',
+        // ...
     ],
     
     'servers' => [
-        ['url' => 'http://127.0.0.1:8000', 'description' => 'Artisan'],
-        ['url' => 'https://api.example.com', 'description' => 'Production'],
+        [
+            'url' => 'http://127.0.0.1:8000',
+            'description' => 'Artisan server',
+        ],
+        // ...
     ],
     
+    // Define your API types
     'api_types' => [
-        'api' => 'API Admin',
-        'site' => 'Public Website API',
-        'mobile' => 'Mobile App API',
-    ],
-    
-    'security' => [
-        'bearer' => [
-            'type' => 'http',
-            'scheme' => 'bearer',
-            'bearerFormat' => 'JWT',
+        'api' => [
+            'prefix' => 'api',
+            'folder_name' => 'API Admin',
+            // ...
         ],
     ],
 ];
 ```
 
-### Entity Configuration
+### Step 4: Verify Installation
 
-```php
-// config/openapi-docs.php
-'entities' => [
-    'users' => [
-        'singular' => 'user',
-        'plural' => 'users',
-        'model' => User::class,
-        'description' => 'System users with role-based access',
-    ],
-],
+```bash
+php artisan openapi:generate --help
 ```
 
-### Custom Endpoint Documentation
+You should see the command help with all available options.
+
+---
+
+## 🚀 Quick Start
+
+### Generate All Formats
+
+```bash
+php artisan openapi:generate --all
+```
+
+This generates:
+- `storage/app/openapi.json`
+- `storage/app/openapi.yaml`
+- `storage/app/postman-collection.json`
+- `storage/app/postman-env-*.json` (3 files)
+- `storage/app/insomnia-workspace.json`
+
+### Generate Specific Format
+
+```bash
+# Only OpenAPI JSON
+php artisan openapi:generate
+
+# Only OpenAPI YAML
+php artisan openapi:generate --format=yaml
+
+# Only Postman
+php artisan openapi:generate --with-postman
+
+# Only Insomnia
+php artisan openapi:generate --with-insomnia
+```
+
+### Access via HTTP
+
+```bash
+# OpenAPI
+curl http://localhost:8000/documentation/openapi.json
+curl http://localhost:8000/documentation/openapi.yaml
+
+# Postman
+curl http://localhost:8000/documentation/postman
+
+# Insomnia
+curl http://localhost:8000/documentation/insomnia
+```
+
+### Import into Tools
+
+**Postman**:
+1. Open Postman
+2. Import → File → Select `postman-collection.json`
+3. Import each `postman-env-*.json` as environments
+
+**Insomnia**:
+1. Open Insomnia
+2. Import → From File → Select `insomnia-workspace.json`
+3. Everything is imported (spec + environments)
+
+**Swagger UI**:
+1. Go to [Swagger Editor](https://editor.swagger.io/)
+2. File → Import File → Select `openapi.yaml`
+
+---
+
+## 📋 Documentation Formats
+
+### OpenAPI 3.0.3
+
+Complete specification with:
+- Info and metadata
+- Server configurations
+- Security schemes (Bearer, API Key)
+- Paths with operations
+- Request/response schemas
+- Examples for all endpoints
+
+**Custom Format (Not Standard)**:
+This package uses a custom OpenAPI format where endpoints are grouped in a `collections` array instead of the standard `paths` object, optimized for modular Laravel applications.
+
+### Postman Collection v2.1
+
+Includes:
+- Hierarchical folder structure (API Type → Module → Entity)
+- Pre-configured environments
+- Test scripts for response validation
+- Global variables for tracking (e.g., `last_user_id`)
+- Bearer token authentication
+
+### Insomnia Workspace v4
+
+Features:
+- Design-first workspace
+- Integrated API specification
+- Environment hierarchy (Base + Sub-environments)
+- Request organization matching module structure
+- Variable inheritance
+
+---
+
+## ⚙️ Configuration
+
+### Main Configuration (`config/openapi.php`)
 
 ```php
-'custom_endpoints' => [
-    'auth.login' => [
-        'summary' => 'User login',
-        'description' => 'Authenticate user and return JWT token',
-        'request_example' => [
-            'email' => 'admin@example.com',
-            'password' => 'secret123',
+return [
+    // API Information
+    'info' => [
+        'title' => env('APP_NAME'),
+        'description' => 'Complete API documentation',
+        'version' => '1.0.0',
+        'contact' => [...],
+        'license' => [...],
+    ],
+
+    // Server Environments
+    'servers' => [
+        ['url' => 'http://127.0.0.1:8000', 'description' => 'Artisan'],
+        ['url' => env('APP_URL'), 'description' => 'Local'],
+        ['url' => env('PRODUCTION_URL'), 'description' => 'Production'],
+    ],
+
+    // Security Schemes
+    'security' => [
+        'bearer_auth' => [
+            'type' => 'http',
+            'scheme' => 'bearer',
+            'bearerFormat' => 'JWT',
         ],
-        'responses' => [
-            200 => [
-                'description' => 'Login successful',
-                'example' => [
-                    'token' => 'eyJ0eXAiOiJKV1QiLCJhbGc...',
-                    'user' => ['id' => 1, 'name' => 'Admin'],
-                ],
+        'api_key' => [
+            'type' => 'apiKey',
+            'in' => 'header',
+            'name' => 'X-API-Key',
+        ],
+    ],
+
+    // API Types (for filtering)
+    'api_types' => [
+        'api' => [
+            'prefix' => 'api',
+            'folder_name' => 'API Admin',
+            'description' => 'Administration API',
+        ],
+        'mobile' => [
+            'prefix' => 'mobile',
+            'folder_name' => 'API Mobile',
+            'description' => 'Mobile App API',
+        ],
+    ],
+
+    // Nwidart Modules Support
+    'nwidart' => [
+        'enabled' => true,
+        'path' => base_path('Modules'),
+        'namespace' => 'Modules',
+    ],
+
+    // Middleware to Security Mapping
+    'middleware_security' => [
+        'auth:sanctum' => 'bearer_auth',
+        'api_key' => 'api_key',
+    ],
+];
+```
+
+### Documentation Templates (`config/openapi-docs.php`)
+
+```php
+return [
+    // Entity Configuration
+    'entities' => [
+        'users' => [
+            'module' => 'Security',
+            'singular' => 'user',
+            'plural' => 'users',
+            'model' => App\Models\User::class,
+        ],
+    ],
+
+    // Custom Endpoint Documentation
+    'custom_endpoints' => [
+        'auth.login' => [
+            'summary' => 'User Login',
+            'description' => 'Authenticate user and return JWT token',
+            'request_fields' => [
+                'email' => 'User email address',
+                'password' => 'User password',
             ],
         ],
     ],
-],
+
+    // Generic CRUD Templates
+    'crud_templates' => [
+        'list' => 'Retrieve paginated list of {entity_plural}',
+        'show' => 'Retrieve details of a specific {entity_singular}',
+        'create' => 'Create a new {entity_singular}',
+        'update' => 'Update an existing {entity_singular}',
+        'delete' => 'Delete a {entity_singular}',
+    ],
+];
+```
+
+### Test Generation (`config/openapi-tests.php`)
+
+```php
+return [
+    // Test Templates for Actions
+    'templates' => [
+        'list' => ['status_200', 'json_response', 'has_data', 'is_array'],
+        'show' => ['status_200', 'json_response', 'has_data', 'is_object'],
+        'create' => ['status_201', 'json_response', 'save_to_global_var'],
+        'update' => ['status_200', 'json_response'],
+        'delete' => ['status_204_or_200'],
+    ],
+
+    // Reusable Test Snippets
+    'snippets' => [
+        'status_200' => "pm.test('Status is 200', function() { pm.response.to.have.status(200); });",
+        'json_response' => "pm.test('Response is JSON', function() { pm.response.to.be.json; });",
+        // ...
+    ],
+
+    // Custom Tests for Specific Endpoints
+    'custom_tests' => [
+        'auth.login' => [
+            "pm.test('Response has token', function() { pm.expect(pm.response.json()).to.have.property('token'); });",
+            "pm.globals.set('token', pm.response.json().token);",
+        ],
+    ],
+];
 ```
 
 ---
 
-## 🎨 Examples
+## 🎓 Advanced Usage
 
-### Example 1: Basic CRUD Resource
+### Filtering by API Type
 
-```php
-// Routes
-Route::apiResource('users', UserController::class);
+```bash
+# Command line
+php artisan openapi:generate --all --api-type=api --api-type=mobile
 
-// Generated automatically:
-// GET    /api/users           → security.users.list
-// POST   /api/users           → security.users.create
-// GET    /api/users/{id}      → security.users.show
-// PUT    /api/users/{id}      → security.users.update
-// DELETE /api/users/{id}      → security.users.delete
+# Via HTTP
+GET /documentation/openapi.json?api_type=api,mobile
+GET /documentation/postman?api_type=site
 ```
 
-### Example 2: Custom Action with Scenario
+### Specifying Environment
 
+```bash
+php artisan openapi:generate --all --environment=production
+```
+
+### Custom Output Path
+
+```bash
+php artisan openapi:generate --output=/custom/path/openapi.json
+```
+
+### Disable Cache
+
+```bash
+php artisan openapi:generate --no-cache
+```
+
+### Combining Options
+
+```bash
+php artisan openapi:generate \
+    --all \
+    --api-type=api \
+    --api-type=mobile \
+    --environment=production \
+    --no-cache
+```
+
+---
+
+## 💡 Examples
+
+### Example 1: Basic CRUD
+
+**Your Code**:
 ```php
-// Route
-Route::post('/users/validate', [UserController::class, 'validate'])
-    ->middleware('inject:_scenario=validate');
+// routes/api.php
+Route::apiResource('users', UserController::class);
 
-// UserRules.php
-'validate' => [
-    'email' => 'required|email|unique:users',
-    'phone' => 'required|regex:/^\+?[1-9]\d{1,14}$/',
-]
-
-// Generated request body:
+// app/Http/Requests/CreateUserRequest.php
+class CreateUserRequest extends FormRequest
 {
-  "email": "",
-  "phone": ""
+    public function rules()
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users',
+        ];
+    }
 }
 ```
 
-### Example 3: Filtering by API Type
-
-```bash
-# Generate only for API admin
-php artisan openapi:generate --all --api-type=api
-
-# Generate for mobile and public site
-php artisan openapi:generate --all --api-type=mobile --api-type=site
+**Generated Documentation**:
+```json
+{
+  "paths": {
+    "/api/users": {
+      "post": {
+        "summary": "Create a new user",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "name": { "type": "string", "maxLength": 255 },
+                  "email": { "type": "string", "format": "email" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
 ```
+
+### Example 2: Custom Action
+
+**Your Code**:
+```php
+// config/openapi-docs.php
+'custom_endpoints' => [
+    'auth.login' => [
+        'summary' => 'User Login',
+        'description' => 'Authenticate user and return JWT token',
+        'request_fields' => [
+            'email' => 'User email address',
+            'password' => 'User password',
+        ],
+    ],
+],
+```
+
+**Generated Documentation**:
+- Automatically creates complete OpenAPI spec
+- Generates Postman request with tests
+- Creates Insomnia request
+- Includes in all formats
+
+### Example 3: Complex Validation
+
+**Your Code**:
+```php
+class UpdateUserRequest extends FormRequest
+{
+    public function rules()
+    {
+        return [
+            'email' => [
+                'sometimes',
+                'email',
+                Rule::unique('users')->ignore($this->user),
+            ],
+            'password' => [
+                'sometimes',
+                Password::min(8)->mixedCase()->numbers(),
+            ],
+        ];
+    }
+}
+```
+
+**Result**:
+- Correctly extracts `email` as unique (ignoring current user)
+- Extracts `password` requirements (min 8, mixed case, numbers)
+- Marks both as optional (`sometimes`)
 
 ---
 
-## 🏗️ Architecture
+## 🐛 Troubleshooting
 
-### Service Layer
-
-```
-OpenApiServices
-├── Route Parsing & Analysis
-├── Module/Entity Detection
-├── Action Inference
-└── Spec Building
-
-MetadataExtractor
-├── Model Introspection
-├── FormRequest Extraction (4 strategies)
-├── Relationship Detection
-└── Field Type Mapping
-
-DocumentationResolver
-├── Custom Endpoint Lookup
-├── JSON Template Rendering
-├── Variable Replacement
-└── Fallback Generation
-
-PostmanCollectionGenerator
-├── Collection v2.1 Structure
-├── Request Organization
-├── Test Script Injection
-└── Environment Generation
-
-InsomniaWorkspaceGenerator
-├── Workspace v4 Structure
-├── Resource Ordering
-├── Environment Hierarchy
-└── Authentication Config
-```
-
----
-
-## 🧪 Testing
+### Issue: "Class not found" errors
 
 ```bash
-# Run tests
-composer test
-
-# Run specific test suite
-composer test -- --filter=OpenApiGeneration
-composer test -- --filter=PostmanGeneration
-composer test -- --filter=MetadataExtraction
+composer dump-autoload
+php artisan clear-compiled
+php artisan cache:clear
 ```
+
+### Issue: Empty request bodies
+
+**Problem**: Generated requests show empty `{}` body
+
+**Solution**:
+1. Verify FormRequest has `rules()` method
+2. Check scenario detection in middleware
+3. Enable debug mode:
+
+```php
+// config/openapi.php
+'debug' => true,
+```
+
+### Issue: Missing modules in documentation
+
+**Problem**: Nwidart modules not appearing
+
+**Solution**:
+```bash
+# Verify modules are enabled
+php artisan module:list
+
+# Check config
+// config/openapi.php
+'nwidart' => [
+    'enabled' => true,
+    'path' => base_path('Modules'),
+],
+```
+
+### Issue: Variables not working in Insomnia
+
+**Problem**: `{{ _.token }}` shows as literal text
+
+**Solution**: Verify environment structure has `_type: environment` in JSON
+
+### Issue: Routes not accessible
+
+**Problem**: HTTP routes not working
+
+**Solution**: Check if routes are enabled:
+```php
+// config/openapi.php
+'routes' => [
+    'enabled' => true,
+    'prefix' => 'documentation',
+],
+```
+
+For more troubleshooting, see [INSTALLATION.md](INSTALLATION.md).
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Setup
+
+```bash
+git clone https://github.com/ronu/laravel-openapi-generator.git
+cd laravel-openapi-generator
+composer install
+vendor/bin/phpunit
+```
+
+### Code Style
+
+```bash
+vendor/bin/php-cs-fixer fix
+```
+
+### Static Analysis
+
+```bash
+vendor/bin/phpstan analyse
+```
 
 ---
 
 ## 📝 License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+This package is open-sourced software licensed under the [MIT license](LICENSE).
 
 ---
 
 ## 🙏 Credits
 
-- Built with ❤️ for the Laravel community
-- Inspired by real-world needs: reducing documentation from hours to minutes
-- Special thanks to all contributors
+- **Author**: charlietyn ([charlietyn@gmail.com](mailto:charlietyn@gmail.com))
+- **Inspired by**: Real-world needs in production Laravel applications
+- **Special thanks**: Laravel community and all contributors
 
 ---
 
-## 🔮 Roadmap
+## 📞 Support
+
+- **Documentation**: [Full Documentation](https://github.com/ronu/laravel-openapi-generator/wiki)
+- **Issues**: [GitHub Issues](https://github.com/ronu/laravel-openapi-generator/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ronu/laravel-openapi-generator/discussions)
+- **Email**: [charlietyn@gmail.com](mailto:charlietyn@gmail.com)
+
+---
+
+## 🗺️ Roadmap
 
 - [ ] Swagger UI integration
 - [ ] ReDoc theme support
@@ -509,15 +766,23 @@ The MIT License (MIT). Please see [License File](LICENSE.md) for more informatio
 - [ ] Custom rule library expansion
 - [ ] Performance optimizations with caching
 - [ ] Multi-language support
+- [ ] Laravel 13 support
 
 ---
 
-## 💬 Support
+## ⭐ Show Your Support
 
-- **Issues:** [GitHub Issues](https://github.com/ronu/laravel-openapi-generator/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/ronu/laravel-openapi-generator/discussions)
-- **Email:** charlietyn@gmail.com
+If this package helped you, please consider:
+
+- ⭐ Starring the repository
+- 🐛 Reporting bugs
+- 💡 Suggesting features
+- 🤝 Contributing code
+- 📢 Sharing with others
 
 ---
 
-**Made with ☕ and late nights debugging Insomnia v4 vs v5 differences**
+<p align="center">
+    <strong>Made with ❤️ for the Laravel community</strong><br>
+    <sub>From hours of manual documentation to minutes of automation</sub>
+</p>
