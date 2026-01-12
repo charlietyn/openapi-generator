@@ -39,6 +39,7 @@ That's it. Your API documentation is ready in OpenAPI, Postman, and Insomnia for
 - [Features](#-features)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
+- [Library Usage](#-library-usage)
 - [Documentation Formats](#-documentation-formats)
 - [Configuration](#-configuration)
 - [Advanced Usage](#-advanced-usage)
@@ -322,6 +323,24 @@ curl http://localhost:8000/documentation/insomnia
 **Swagger UI**:
 1. Go to [Swagger Editor](https://editor.swagger.io/)
 2. File → Import File → Select `openapi.yaml`
+
+---
+
+## 📦 Library Usage
+
+If you prefer to use the generator as a library in your Laravel codebase, you can call the service directly:
+
+```php
+use Ronu\OpenApiGenerator\OpenApiGenerator;
+
+$generator = app(OpenApiGenerator::class);
+
+$openApiSpec = $generator->generateOpenApi();
+$postmanCollection = $generator->generatePostman();
+$insomniaWorkspace = $generator->generateInsomnia();
+```
+
+The methods accept optional parameters for cache usage, API type filtering, and environment selection.
 
 ---
 

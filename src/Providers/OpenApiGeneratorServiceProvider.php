@@ -4,6 +4,7 @@ namespace Ronu\OpenApiGenerator\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Ronu\OpenApiGenerator\Commands\GenerateOpenApiSpec;
+use Ronu\OpenApiGenerator\OpenApiGenerator;
 use Ronu\OpenApiGenerator\Services\OpenApiServices;
 
 
@@ -19,6 +20,10 @@ class OpenApiGeneratorServiceProvider extends ServiceProvider
         // Register services
         $this->app->singleton(OpenApiServices::class, function ($app) {
             return new OpenApiServices();
+        });
+
+        $this->app->singleton(OpenApiGenerator::class, function ($app) {
+            return new OpenApiGenerator($app->make(OpenApiServices::class));
         });
 
         // ✅ CORRECT: Use proper package config path
