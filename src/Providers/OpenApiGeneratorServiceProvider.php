@@ -50,6 +50,10 @@ class OpenApiGeneratorServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (config('openapi.routes.enabled')) {
+            $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
+        }
+
         // Publish configuration
         if ($this->app->runningInConsole()) {
             $this->publishes([
