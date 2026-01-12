@@ -24,7 +24,7 @@ use Illuminate\Support\Str;
  * 3. Fallback
  *
  * @package Ronu\OpenApiGenerator\Services\Documentation
- * @version 3.0.0 - JSON Templates
+ * @version 3.1.0 - Fixed Package Paths
  */
 class TemplateDocumentationResolver
 {
@@ -39,9 +39,16 @@ class TemplateDocumentationResolver
     protected MetadataExtractor $extractor;
 
     /**
-     * Templates base path
+     * Package templates base path
+     * This is the fallback when user hasn't published templates
      */
-    protected string $templatesPath;
+    protected string $packageTemplatesPath;
+
+    /**
+     * User templates base path (published)
+     * This takes priority over package templates
+     */
+    protected string $userTemplatesPath;
 
     /**
      * Enable caching
@@ -55,6 +62,12 @@ class TemplateDocumentationResolver
 
     /**
      * Constructor
+     *
+     * CRITICAL FIX: Properly handle package vs user template paths
+     *
+     * Resolution order:
+     * 1. User published templates (resource_path('openapi/templates'))
+     * 2. Package templates (vendor/ronu/openapi-generator/resources/templates)
      */
     public function __construct()
     {
@@ -63,15 +76,27 @@ class TemplateDocumentationResolver
         );
         $this->extractor = new MetadataExtractor();
 
-        $userTemplatesPath = resource_path('openapi/templates');
-        $packageTemplatesPath = __DIR__ . '/../../resources/templates';
+        // ============================================================
+        // CRITICAL FIX: Use correct relative path for package templates
+        // ============================================================
 
-        $this->templatesPath = file_exists($userTemplatesPath)
-            ? $userTemplatesPath
-            : $packageTemplatesPath;
+        // Package templates (always available, built into package)
+        // From: src/Services/Documentation/TemplateDocumentationResolver.php
+        // To:   resources/templates/
+        // Path: ../../../resources/templates
+        $this->packageTemplatesPath = __DIR__ . '/../../../resources/templates';
+
+        // User published templates (optional, takes priority)
+        $this->userTemplatesPath = resource_path('openapi/templates');
+
         $this->cacheEnabled = config('openapi-templates.cache_enabled', true);
 
-        $this->ensureTemplatesDirectory();
+        Log::channel('openapi')->debug('TemplateDocumentationResolver initialized', [
+            'package_templates' => $this->packageTemplatesPath,
+            'package_exists' => file_exists($this->packageTemplatesPath),
+            'user_templates' => $this->userTemplatesPath,
+            'user_exists' => file_exists($this->userTemplatesPath),
+        ]);
     }
 
     /**
@@ -94,85 +119,69 @@ class TemplateDocumentationResolver
     {
         $cacheKey = "{$module}.{$entity}.{$action}";
 
-        // Check cache
         if ($this->cacheEnabled && isset($this->cache[$cacheKey])) {
-            Log::channel('openapi')->debug('JSON Template cache hit', ['key' => $cacheKey]);
+            Log::channel('openapi')->debug('Using cached documentation', ['key' => $cacheKey]);
             return $this->cache[$cacheKey];
         }
 
-        Log::channel('openapi')->info('Resolving documentation (JSON templates)', [
-            'entity' => $entity,
-            'action' => $action,
-            'module' => $module,
-        ]);
-
         // Extract metadata
-        $metadata = $this->extractor->extractForEntity(
-            $entity,
-            $module,
-            $controller,
-            $action,
-            $route
-        );
+        $metadata = $this->extractor->extractMetadata($entity, $module, $action, $controller, $route);
 
-        // Try custom JSON template first
+        // Try custom template
         $customTemplate = $this->findCustomTemplate($entity, $action);
         if ($customTemplate) {
-            Log::channel('openapi')->info('Using custom JSON template', [
-                'template' => basename($customTemplate),
+            Log::channel('openapi')->info('Using custom template', [
                 'entity' => $entity,
                 'action' => $action,
+                'template' => basename($customTemplate),
             ]);
-
             $result = $this->renderTemplate($customTemplate, $metadata);
             return $this->cacheResult($cacheKey, $result);
         }
 
-        // Try generic JSON template
+        // Try generic template
         $genericTemplate = $this->findGenericTemplate($action);
         if ($genericTemplate) {
-            Log::channel('openapi')->info('Using generic JSON template', [
-                'template' => basename($genericTemplate),
+            Log::channel('openapi')->info('Using generic template', [
                 'action' => $action,
+                'template' => basename($genericTemplate),
             ]);
-
             $result = $this->renderTemplate($genericTemplate, $metadata);
             return $this->cacheResult($cacheKey, $result);
         }
 
-        // Fallback
-        Log::channel('openapi')->warning('No JSON template found, using fallback', [
+        // Fallback to generic documentation
+        Log::channel('openapi')->warning('No template found, using fallback', [
             'entity' => $entity,
             'action' => $action,
         ]);
-
         $result = $this->getGenericFallback($entity, $action, $metadata);
         return $this->cacheResult($cacheKey, $result);
     }
 
     /**
-     * Find custom template for specific entity.action
+     * Find custom JSON template
      *
-     * Looks for: custom/{entity}.{action}.json
+     * Searches in priority order:
+     * 1. User published: resource_path('openapi/templates/custom/{entity}.{action}.json')
+     * 2. Package: vendor/.../resources/templates/custom/{entity}.{action}.json
+     *
      * @param string $entity Entity name
      * @param string $action Action name
      * @return string|null Template path
      */
     protected function findCustomTemplate(string $entity, string $action): ?string
     {
-        $action = Str::kebab($action);
-        $templateName = "{$entity}.{$action}.json";
-        $path = $this->templatesPath . "/custom/{$templateName}";
-
-        if (File::exists($path)) {
-            return $path;
-        }
-
-        return null;
+        $templateName = "custom/{$entity}.{$action}.json";
+        return $this->getTemplatePath($templateName);
     }
 
     /**
      * Find generic JSON template
+     *
+     * Searches in priority order:
+     * 1. User published: resource_path('openapi/templates/generic/{action}.json')
+     * 2. Package: vendor/.../resources/templates/generic/{action}.json
      *
      * @param string $action Action name
      * @return string|null Template path
@@ -188,12 +197,49 @@ class TemplateDocumentationResolver
         ];
 
         $templateName = $mapping[$action] ?? $action;
-        $path = $this->templatesPath . "/generic/{$templateName}.json";
+        return $this->getTemplatePath("generic/{$templateName}.json");
+    }
 
-        if (File::exists($path)) {
-            return $path;
+    /**
+     * Get template file path with fallback
+     *
+     * CRITICAL METHOD: Handles template resolution with proper priority
+     *
+     * Priority order:
+     * 1. User-published templates (allows customization)
+     * 2. Package templates (always available)
+     *
+     * @param string $templateName Template name (e.g., "generic/list.json")
+     * @return string|null Full path to template file
+     */
+    protected function getTemplatePath(string $templateName): ?string
+    {
+        // Priority 1: User-published templates (custom overrides)
+        $userPath = $this->userTemplatesPath . '/' . $templateName;
+        if (file_exists($userPath)) {
+            Log::channel('openapi')->debug('Found user template', [
+                'template' => $templateName,
+                'path' => $userPath,
+            ]);
+            return $userPath;
         }
 
+        // Priority 2: Package templates (fallback, always available)
+        $packagePath = $this->packageTemplatesPath . '/' . $templateName;
+        if (file_exists($packagePath)) {
+            Log::channel('openapi')->debug('Found package template', [
+                'template' => $templateName,
+                'path' => $packagePath,
+            ]);
+            return $packagePath;
+        }
+
+        // Not found anywhere
+        Log::channel('openapi')->warning('Template not found', [
+            'template' => $templateName,
+            'searched_user' => $userPath,
+            'searched_package' => $packagePath,
+        ]);
         return null;
     }
 
@@ -296,45 +342,5 @@ class TemplateDocumentationResolver
     {
         $this->cache = [];
         $this->extractor->clearCache();
-    }
-
-    /**
-     * Ensure templates directory exists
-     */
-    protected function ensureTemplatesDirectory(): void
-    {
-        // Don't create directory if using package templates
-        if (str_contains($this->templatesPath, 'vendor')) {
-            return;
-        }
-
-        // Create user templates directory if needed
-        if (!file_exists($this->templatesPath)) {
-            mkdir($this->templatesPath, 0755, true);
-
-            // Create subdirectories
-            mkdir($this->templatesPath . '/generic', 0755, true);
-            mkdir($this->templatesPath . '/custom', 0755, true);
-        }
-    }
-
-    /**
-     * Get template file path with fallback
-     */
-    protected function getTemplatePath(string $templateName): ?string
-    {
-        // Priority 1: User-published templates
-        $userPath = resource_path("openapi/templates/{$templateName}");
-        if (file_exists($userPath)) {
-            return $userPath;
-        }
-
-        // Priority 2: Package templates
-        $packagePath = __DIR__ . "/../../resources/templates/{$templateName}";
-        if (file_exists($packagePath)) {
-            return $packagePath;
-        }
-
-        return null;
     }
 }
