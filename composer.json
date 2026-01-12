@@ -46,7 +46,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Ronu\\OpenApiGenerator\\OpenApiGeneratorServiceProvider"
+                "Ronu\\OpenApiGenerator\\Providers\\OpenApiGeneratorServiceProvider"
             ],
             "aliases": {
                 "OpenApiGenerator": "Ronu\\OpenApiGenerator\\Facades\\OpenApiGenerator"

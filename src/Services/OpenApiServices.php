@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
-use ReflectionClass;
 use Ronu\OpenApiGenerator\Helpers\PlaceholderHelper;
+use Ronu\OpenApiGenerator\Services\Documentation\DocumentationResolver;
 
 /**
  * OpenAPI Specification Generator Service - Version 2.1 FIXED

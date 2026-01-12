@@ -63,7 +63,7 @@ Laravel will automatically discover the service provider. If auto-discovery is d
 // config/app.php
 'providers' => [
     // Other providers...
-    Ronu\OpenApiGenerator\OpenApiGeneratorServiceProvider::class,
+    Ronu\OpenApiGenerator\Providers\OpenApiGeneratorServiceProvider::class,
 ],
 ```
 

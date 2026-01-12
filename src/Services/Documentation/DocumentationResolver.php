@@ -1,7 +1,5 @@
 <?php
-namespace Ronu\OpenApiGenerator\Services;
-
-use Ronu\OpenApiGenerator\Services\Documentation\TemplateDocumentationResolver;
+namespace Ronu\OpenApiGenerator\Services\Documentation;
 
 /**
  * Class DocumentationResolver

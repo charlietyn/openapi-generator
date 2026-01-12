@@ -1,6 +1,6 @@
 <?php
 
-namespace Ronu\OpenApiGenerator;
+namespace Ronu\OpenApiGenerator\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Ronu\OpenApiGenerator\Commands\GenerateOpenApiSpec;

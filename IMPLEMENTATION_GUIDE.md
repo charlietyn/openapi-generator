@@ -72,7 +72,6 @@ src/
 │   ├── Documentation/
 │   │   ├── DocumentationResolver.php    # Resolution logic
 │   │   ├── TemplateDocumentationResolver.php
-│   │   ├── YamlTemplateRenderer.php
 │   │   └── MetadataExtractor.php        # 4-strategy extraction
 │   ├── Generators/
 │   │   ├── PostmanCollectionGenerator.php
