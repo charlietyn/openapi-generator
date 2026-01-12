@@ -31,6 +31,11 @@ Route::prefix($prefix)
             ->where('format', 'json|yaml|yml')
             ->name('spec');
 
+        // Legacy route name for backward compatibility
+        Route::get('openapi.{format}', [OpenApiController::class, 'generate'])
+            ->where('format', 'json|yaml|yml')
+            ->name('generate');
+
         // Postman Collection
         Route::get('postman', function (Request $request) {
             return app(OpenApiController::class)->generate($request, 'postman');
@@ -40,4 +45,9 @@ Route::prefix($prefix)
         Route::get('insomnia', function (Request $request) {
             return app(OpenApiController::class)->generate($request, 'insomnia');
         })->name('insomnia');
+
+        // Available environments
+        Route::get('environments/{format?}', [OpenApiController::class, 'environments'])
+            ->where('format', 'postman|insomnia')
+            ->name('environments');
     });
