@@ -76,14 +76,6 @@ class TemplateDocumentationResolver
         );
         $this->extractor = new MetadataExtractor();
 
-        // ============================================================
-        // CRITICAL FIX: Use correct relative path for package templates
-        // ============================================================
-
-        // Package templates (always available, built into package)
-        // From: src/Services/Documentation/TemplateDocumentationResolver.php
-        // To:   resources/templates/
-        // Path: ../../../resources/templates
         $this->packageTemplatesPath = __DIR__ . '/../../../resources/templates';
 
         // User published templates (optional, takes priority)
@@ -106,7 +98,7 @@ class TemplateDocumentationResolver
      * @param string $action Action name
      * @param string $module Module name
      * @param string|null $controller Controller class
-     * @param mixed $route Route object
+     * @param mixed|null $route Route object
      * @return array Documentation
      */
     public function resolveForOperation(
@@ -114,7 +106,7 @@ class TemplateDocumentationResolver
         string  $action,
         string  $module,
         ?string $controller = null,
-                $route = null
+        mixed $route = null
     ): array
     {
         $cacheKey = "{$module}.{$entity}.{$action}";
@@ -125,7 +117,7 @@ class TemplateDocumentationResolver
         }
 
         // Extract metadata
-        $metadata = $this->extractor->extractMetadata($entity, $module, $action, $controller, $route);
+        $metadata = $this->extractor->extractForEntity($entity, $module, $action, $controller, $route);
 
         // Try custom template
         $customTemplate = $this->findCustomTemplate($entity, $action);

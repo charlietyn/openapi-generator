@@ -7,7 +7,7 @@ use Ronu\OpenApiGenerator\Commands\GenerateOpenApiSpec;
 use Ronu\OpenApiGenerator\Services\OpenApiServices;
 
 
-class OpenApiServiceProvider extends ServiceProvider
+class OpenApiGeneratorServiceProvider extends ServiceProvider
 {
     /**
      * Register services.
