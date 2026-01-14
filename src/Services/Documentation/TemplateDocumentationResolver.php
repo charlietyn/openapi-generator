@@ -117,7 +117,7 @@ class TemplateDocumentationResolver
         }
 
         // Extract metadata
-        $metadata = $this->extractor->extractForEntity($entity, $module, $action, $controller, $route);
+        $metadata = $this->extractor->extractForEntity($entity, $module, $controller,$action, $route);
 
         // Try custom template
         $customTemplate = $this->findCustomTemplate($entity, $action);

@@ -106,11 +106,12 @@ class OpenApiController extends Controller
 
         $this->generator->setApiTypeFilter($apiTypes);
         $spec = $this->generator->generate();
+        $apiTypesName = !empty($apiTypes) ? implode('-', $apiTypes) : '';
 
         $postmanGen = app(PostmanCollectionGenerator::class);
         $collection = $postmanGen->generate($spec, $environment, $apiTypes);
 
-        $filename = $this->buildFilename('postman-collection', $apiTypes);
+        $filename = $this->buildFilename('postman-'.$apiTypesName, $apiTypes);
 
         return response(json_encode($collection, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), 200)
             ->header('Content-Type', 'application/json')
@@ -133,8 +134,8 @@ class OpenApiController extends Controller
 
         $insomniaGen = app(InsomniaWorkspaceGenerator::class);
         $workspace = $insomniaGen->generate($spec, $environment, $apiTypes);
-
-        $filename = $this->buildFilename('insomnia-workspace', $apiTypes);
+        $apiTypesName = !empty($apiTypes) ? implode('-', $apiTypes) : '';
+        $filename = $this->buildFilename('insomnia-'.$apiTypesName, $apiTypes);
 
         return response(json_encode($workspace, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), 200)
             ->header('Content-Type', 'application/json')

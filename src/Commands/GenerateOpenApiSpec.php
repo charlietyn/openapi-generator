@@ -129,8 +129,9 @@ class GenerateOpenApiSpec extends Command
 
                 $postmanGen = app(PostmanCollectionGenerator::class);
                 $collection = $postmanGen->generate($spec, $environment, $apiTypes);
-
-                $postmanPath = storage_path('app/postman-collection.json');
+                $apiTypesName = !empty($apiTypes) ? implode('-', $apiTypes) : '';
+                $fileName='postman-'.$apiTypesName.'.json';
+                $postmanPath = storage_path('app/public/'.$fileName);
                 File::put($postmanPath, json_encode($collection, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
                 $this->info("✅ Postman collection generated!");
@@ -154,10 +155,10 @@ class GenerateOpenApiSpec extends Command
 
                 $insomniaGen = app(InsomniaWorkspaceGenerator::class);
                 $workspace = $insomniaGen->generate($spec, $environment, $apiTypes);
-
-                $insomniaPath = storage_path('app/insomnia-workspace.json');
+                $apiTypesName = !empty($apiTypes) ? implode('-', $apiTypes) : '';
+                $fileName='insomnia-'.$apiTypesName.'.json';
+                $insomniaPath = storage_path('app/public/'.$fileName);
                 File::put($insomniaPath, json_encode($workspace, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
                 $this->info("✅ Insomnia workspace generated!");
                 $this->line("📄 File: {$insomniaPath}");
                 $this->line("  ├─ Includes 3 environments (base + artisan + local + production)");
