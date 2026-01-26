@@ -280,12 +280,6 @@ This generates (default output path: `storage/app/public/openapi`):
 - `storage/app/public/openapi/postman-env-*.json` (3 files)
 - `storage/app/public/openapi/insomnia-all.json`
 
-It also generates per-channel files for every enabled `api_type`:
-- `storage/app/public/openapi/openapi-<channel>.json`
-- `storage/app/public/openapi/openapi-<channel>.yaml`
-- `storage/app/public/openapi/postman-<channel>.json`
-- `storage/app/public/openapi/insomnia-<channel>.json`
-
 ### Generate Specific Format
 
 ```bash

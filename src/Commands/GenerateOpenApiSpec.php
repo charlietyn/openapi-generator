@@ -73,12 +73,6 @@ class GenerateOpenApiSpec extends Command
         $withInsomnia = $this->option('with-insomnia');
         $environment = $this->option('environment');
         $outputPath = config('openapi.output_path', storage_path('app/public/openapi'));
-        $enabledApiTypes = array_keys($this->getEnabledApiTypes());
-
-        if ($generateAll) {
-            $withPostman = true;
-            $withInsomnia = true;
-        }
 
         // Validate format
         if (!in_array($format, ['json', 'yaml', 'yml'])) {
@@ -96,9 +90,27 @@ class GenerateOpenApiSpec extends Command
         try {
             $this->validateApiTypes($apiTypes);
 
-            $targets = $apiTypes;
-            if ($generateAll && empty($targets)) {
-                $targets = $enabledApiTypes;
+            // Apply API type filter
+            if (!empty($apiTypes)) {
+                $this->generator->setApiTypeFilter($apiTypes);
+                $this->info('🔍 Filtering API types: ' . implode(', ', $apiTypes));
+            } else {
+                $this->info('📦 Generating all API types');
+            }
+
+            // Generate OpenAPI specification
+            $this->info('📋 Inspecting routes...');
+            $spec = $this->generator->generate($useCache);
+
+            $routeCount = count($spec['paths'] ?? []);
+            $this->info("✅ Found {$routeCount} unique paths");
+
+            // Determine output path for OpenAPI
+            if (!$output) {
+                $extension = $format === 'json' ? 'json' : 'yaml';
+                $filename = $this->generator->generateFilename('openapi', $apiTypes, null);
+                $filename = str_replace('.json', '.' . $extension, $filename);
+                $output = $outputPath . DIRECTORY_SEPARATOR . $filename;
             }
 
             if (empty($targets)) {
@@ -113,31 +125,58 @@ class GenerateOpenApiSpec extends Command
                     null
                 );
             } else {
-                if ($generateAll && empty($apiTypes)) {
-                    $this->generateArtifacts(
-                        $useCache,
-                        $format,
-                        $output,
-                        $outputPath,
-                        $withPostman,
-                        $withInsomnia,
-                        $environment,
-                        null
-                    );
+                $content = Yaml::dump($spec, 10, 2);
+            }
+
+            File::ensureDirectoryExists(dirname($output));
+            File::put($output, $content);
+
+            $this->info("✅ OpenAPI specification generated!");
+            $this->line("📄 File: {$output}");
+            $this->line("📦 Format: {$format}");
+            $this->line("📢 Paths: {$routeCount}");
+
+            // Generate Postman collection
+            if ($withPostman) {
+                $this->newLine();
+                $this->info('📮 Generating Postman collection...');
+
+                $postmanGen = app(PostmanCollectionGenerator::class);
+                $collection = $postmanGen->generate($spec, $environment, $apiTypes);
+                $fileName = $this->generator->generateFilename('postman', $apiTypes, null);
+                $postmanPath = $outputPath . DIRECTORY_SEPARATOR . $fileName;
+                File::ensureDirectoryExists(dirname($postmanPath));
+                File::put($postmanPath, json_encode($collection, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+                $this->info("✅ Postman collection generated!");
+                $this->line("📄 File: {$postmanPath}");
+
+                // Generate environments
+                $this->info('📋 Generating Postman environments...');
+
+                foreach (['artisan', 'local', 'production'] as $env) {
+                    $envData = $envGen->generatePostman($env);
+                    $envPath = $outputPath . DIRECTORY_SEPARATOR . "postman-env-{$env}.json";
+                    File::put($envPath, json_encode($envData, JSON_PRETTY_PRINT));
+                    $this->line("  ├─ {$env}: {$envPath}");
                 }
 
-                foreach ($targets as $apiType) {
-                    $this->generateArtifacts(
-                        $useCache,
-                        $format,
-                        null,
-                        $outputPath,
-                        $withPostman,
-                        $withInsomnia,
-                        $environment,
-                        [$apiType]
-                    );
-                }
+            // Generate Insomnia workspace
+            if ($withInsomnia) {
+                $this->newLine();
+                $this->info('🛏️  Generating Insomnia workspace...');
+
+                $insomniaGen = app(InsomniaWorkspaceGenerator::class);
+                $workspace = $insomniaGen->generate($spec, $environment, $apiTypes);
+                $fileName = $this->generator->generateFilename('insomnia', $apiTypes, null);
+                $insomniaPath = $outputPath . DIRECTORY_SEPARATOR . $fileName;
+                File::ensureDirectoryExists(dirname($insomniaPath));
+                File::put($insomniaPath, json_encode($workspace, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                $this->info("✅ Insomnia workspace generated!");
+                $this->line("📄 File: {$insomniaPath}");
+                $this->line("  ├─ Includes 3 environments (base + artisan + local + production)");
+                $this->line("  ├─ Minimal API Spec tab");
+                $this->line("  └─ Automated tests included");
             }
 
             // Show import instructions
