@@ -99,14 +99,11 @@ class ValidJSONTemplateProcessor
 
             // 3. Process template
             $processed = $this->processContent($content, $variables);
-            $processed = str_replace('["{', '[{', $processed);
-            $processed = str_replace(']"', ']', $processed);
-            $processed = str_replace('"[{"', '[{"', $processed);
-            $processed = str_replace('}"', '}', $processed);
-            $processed = str_replace(': "{', ': {', $processed);
-            $processed = str_replace(': "[]', ': "[]"', $processed);
-            $processed = str_replace(',"{', ',{', $processed);
-            // 4. Validate result is still valid JSON
+
+            // 4. Clean up any malformed JSON from string replacements
+            $processed = $this->cleanupJsonOutput($processed);
+
+            // 5. Validate result is still valid JSON
             $this->validateJSON($processed, "Processed template {$templatePath}");
 
             // 5. Parse to array
@@ -250,44 +247,144 @@ class ValidJSONTemplateProcessor
      */
     protected function processVariables(string $content, array $variables): string
     {
-
         $this->log('info', "🔧 Processing variables. Total keys: " . count($variables));
 
+        // Log unreplaced variables before processing
         preg_match_all('/__VAR:([^_]+)__/', $content, $unreplacedVars);
         if (!empty($unreplacedVars[1])) {
             $this->log('warning', "⚠️ Found unreplaced __VAR__ before processing: " . implode(', ', array_unique($unreplacedVars[1])));
         }
-        foreach ($variables as $key => $value) {
-            // 1️⃣ Process __VAR:key__ (simple variables)
-            $varPattern = '__VAR:' . preg_quote($key, '/') . '__';
 
+        foreach ($variables as $key => $value) {
+            $varPattern = '__VAR:' . $key . '__';
+            $jsonPattern = '__JSON:' . $key . '__';
+
+            // ═══════════════════════════════════════════════════════════════
+            // 1️⃣ Process __VAR:key__ (scalar values: string, number, boolean)
+            // ═══════════════════════════════════════════════════════════════
             if (is_scalar($value) || $value === null) {
                 $replacement = $this->escapeForJsonString($value);
                 $content = str_replace($varPattern, $replacement, $content);
-
                 $this->log('debug', "Replaced __VAR:{$key}__ with: " . substr($replacement, 0, 50));
             }
 
-            // 2️⃣ Process __JSON:key__ (arrays/objects)
-            $jsonPattern = '__JSON:' . preg_quote($key, '/') . '__';
+            // ═══════════════════════════════════════════════════════════════
+            // 2️⃣ Process __JSON:key__ (arrays, objects, or pre-encoded JSON strings)
+            // ═══════════════════════════════════════════════════════════════
 
+            // Case A: Arrays or objects - encode to JSON
             if (is_array($value) || is_object($value)) {
-                // Para arrays/objects
-                $replacement = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                $content = str_replace($jsonPattern, $replacement, $content);
+                $jsonValue = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-                $this->log('debug', "Replaced __JSON:{$key}__ with: " . substr($replacement, 0, 50));
-            } elseif ($value === null) {
+                // Replace with quotes (inside string context): "__JSON:key__" → JSON value
+                $content = str_replace('"' . $jsonPattern . '"', $jsonValue, $content);
+
+                // Replace without quotes (standalone): __JSON:key__ → JSON value
+                $content = str_replace($jsonPattern, $jsonValue, $content);
+
+                $this->log('debug', "Replaced __JSON:{$key}__ (array/object) with: " . substr($jsonValue, 0, 50));
+            }
+            // Case B: String that looks like JSON - use directly
+            elseif (is_string($value) && $this->isJsonString($value)) {
+                // Replace with quotes: "__JSON:key__" → JSON value (remove outer quotes)
+                $content = str_replace('"' . $jsonPattern . '"', $value, $content);
+
+                // Replace without quotes
+                $content = str_replace($jsonPattern, $value, $content);
+
+                $this->log('debug', "Replaced __JSON:{$key}__ (pre-encoded JSON) with: " . substr($value, 0, 50));
+            }
+            // Case C: Null value
+            elseif ($value === null) {
+                $content = str_replace('"' . $jsonPattern . '"', 'null', $content);
                 $content = str_replace($jsonPattern, 'null', $content);
             }
         }
 
-        preg_match_all('/__VAR:([^_]+)__/', $content, $stillUnreplaced);
-        if (!empty($stillUnreplaced[1])) {
-            $this->log('error', "❌ Still unreplaced __VAR__ after processing: " . implode(', ', array_unique($stillUnreplaced[1])));
+        // Log any remaining unreplaced variables
+        preg_match_all('/__VAR:([^_]+)__/', $content, $stillUnreplacedVars);
+        if (!empty($stillUnreplacedVars[1])) {
+            $this->log('error', "❌ Still unreplaced __VAR__ after processing: " . implode(', ', array_unique($stillUnreplacedVars[1])));
+        }
+
+        preg_match_all('/__JSON:([^_]+)__/', $content, $stillUnreplacedJson);
+        if (!empty($stillUnreplacedJson[1])) {
+            $this->log('error', "❌ Still unreplaced __JSON__ after processing: " . implode(', ', array_unique($stillUnreplacedJson[1])));
         }
 
         return $content;
+    }
+
+    /**
+     * Check if a string is valid JSON
+     *
+     * @param string $string String to check
+     * @return bool True if valid JSON
+     */
+    protected function isJsonString(string $string): bool
+    {
+        if (empty($string)) {
+            return false;
+        }
+
+        // Quick check for JSON-like structure
+        $firstChar = $string[0];
+        if (!in_array($firstChar, ['{', '[', '"'], true)) {
+            return false;
+        }
+
+        json_decode($string);
+        return json_last_error() === JSON_ERROR_NONE;
+    }
+
+    /**
+     * Clean up JSON output after variable replacement
+     *
+     * Fixes common issues that arise when replacing placeholder strings
+     * with JSON values (arrays/objects).
+     *
+     * @param string $json JSON string to clean
+     * @return string Cleaned JSON string
+     */
+    protected function cleanupJsonOutput(string $json): string
+    {
+        // Fix: "{"key":"value"}" → {"key":"value"}
+        // When a JSON object/array was inserted into a quoted placeholder
+        $patterns = [
+            // Array/Object inside quotes: "[{...}]" or "{...}"
+            '/"\s*(\[[\s\S]*?\])\s*"/' => '$1',  // "[...]" → [...]
+            '/"\s*(\{[\s\S]*?\})\s*"/' => '$1',  // "{...}" → {...}
+
+            // Double quotes around arrays: ""[" or "]""
+            '/""\[/' => '"[',
+            '/\]""/' => ']"',
+
+            // Escaped quotes that shouldn't be escaped
+            '/\\\\+"/' => '"',
+        ];
+
+        foreach ($patterns as $pattern => $replacement) {
+            $json = preg_replace($pattern, $replacement, $json);
+        }
+
+        // Simple string replacements for common issues
+        $replacements = [
+            '["{' => '[{',      // Array start with object
+            '}"]' => '}]',      // Array end with object
+            '"[{"' => '[{"',    // Quoted array of objects
+            '}]"' => '}]',      // End of array
+            ': "{' => ': {',    // Object value
+            '}",' => '},',      // Object in array
+            ',"{' => ',{',      // Next object in array
+            ': "[]"' => ': []', // Empty array (keep valid)
+            '""' => '"',        // Double empty quotes (edge case)
+        ];
+
+        foreach ($replacements as $search => $replace) {
+            $json = str_replace($search, $replace, $json);
+        }
+
+        return $json;
     }
 
     /**

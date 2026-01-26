@@ -77,7 +77,8 @@ class MetadataExtractor
             'table_name' => $this->getTableName($modelClass),
             'model_class' => $modelClass,
             'available_fields' => $this->getModelFields($modelClass),
-            'available_relations' => json_encode($this->getModelRelations($modelClass)),
+            'available_relations' => $this->getModelRelations($modelClass),
+            'relations_list' => $this->getRelationsList($modelClass),
             'fillable_fields' => $this->getFillableFields($modelClass),
             'hidden_fields' => $this->getHiddenFields($modelClass),
             'casts' => $this->getCasts($modelClass),
@@ -101,7 +102,6 @@ class MetadataExtractor
             'validation_description' => $this->formatValidationRulesFromFormRequest($formRequestClass, $scenario),
             'validation_errors_example' => $this->generateValidationErrorsExampleFromFormRequest($formRequestClass, $scenario),
 
-            'relations_list' => $this->getRelationsList($modelClass),
             'relations_description' => $this->getRelationsDescription($modelClass),
         ];
 
@@ -1847,25 +1847,33 @@ class MetadataExtractor
         ];
     }
 
-    protected function generateOrderByExamples(?string $modelClass): array|string
+    protected function generateOrderByExamples(?string $modelClass): array
     {
+        $examples = [];
+
         if ($modelClass) {
             $fields = $this->getModelFields($modelClass);
-            $examples = [];
             $count = 0;
+
             foreach ($fields as $field => $type) {
                 if ($count >= 2) {
                     break;
                 }
                 $direction = $count === 0 ? 'desc' : 'asc';
-                $examples[] = "{\"{$field}\":\"{$direction}\"}";
+                $examples[] = [$field => $direction];
                 $count++;
             }
-            if (!empty($examples)) {
-                return $examples;
-            }
         }
-        return '[{"created_at":"desc"},{"iid":"asc"}]';
+
+        // Default fallback if no fields found
+        if (empty($examples)) {
+            $examples = [
+                ['created_at' => 'desc'],
+                ['id' => 'asc']
+            ];
+        }
+
+        return $examples;
     }
 
     protected function getTableDescription(string $entity, string $module): string
