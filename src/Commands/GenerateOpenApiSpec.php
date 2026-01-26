@@ -160,7 +160,7 @@ class GenerateOpenApiSpec extends Command
                     File::put($envPath, json_encode($envData, JSON_PRETTY_PRINT));
                     $this->line("  ├─ {$env}: {$envPath}");
                 }
-
+            }
             // Generate Insomnia workspace
             if ($withInsomnia) {
                 $this->newLine();
@@ -224,15 +224,16 @@ class GenerateOpenApiSpec extends Command
      * Generate specs and collections for a given API type set.
      */
     private function generateArtifacts(
-        bool $useCache,
-        string $format,
+        bool    $useCache,
+        string  $format,
         ?string $output,
-        string $outputPath,
-        bool $withPostman,
-        bool $withInsomnia,
-        string $environment,
-        ?array $apiTypes
-    ): void {
+        string  $outputPath,
+        bool    $withPostman,
+        bool    $withInsomnia,
+        string  $environment,
+        ?array  $apiTypes
+    ): void
+    {
         if (!empty($apiTypes)) {
             $this->generator->setApiTypeFilter($apiTypes);
             $this->info('🔍 Filtering API types: ' . implode(', ', $apiTypes));
