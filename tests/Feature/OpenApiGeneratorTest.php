@@ -4,7 +4,9 @@ namespace Ronu\OpenApiGenerator\Tests\Feature;
 
 use Illuminate\Support\Facades\Route;
 use Mockery;
+use Ronu\OpenApiGenerator\Services\InsomniaWorkspaceGenerator;
 use Ronu\OpenApiGenerator\Services\OpenApiServices;
+use Ronu\OpenApiGenerator\Services\PostmanCollectionGenerator;
 use Ronu\OpenApiGenerator\Tests\TestCase;
 
 class OpenApiGeneratorTest extends TestCase
@@ -55,5 +57,47 @@ class OpenApiGeneratorTest extends TestCase
                 'version' => '1.0.0',
             ],
         ]);
+    }
+
+    public function test_generate_passes_normalized_api_types_to_collection_generators(): void
+    {
+        $this->app['config']->set('openapi.cache.enabled', false);
+
+        $postmanGenerator = Mockery::mock(PostmanCollectionGenerator::class);
+        $insomniaGenerator = Mockery::mock(InsomniaWorkspaceGenerator::class);
+
+        $postmanGenerator->shouldReceive('generate')
+            ->once()
+            ->with(Mockery::type('array'), 'artisan', ['mobile'])
+            ->andReturn(['postman' => true]);
+
+        $insomniaGenerator->shouldReceive('generate')
+            ->once()
+            ->with(Mockery::type('array'), 'artisan', ['mobile'])
+            ->andReturn(['insomnia' => true]);
+
+        $service = new class($postmanGenerator, $insomniaGenerator) extends OpenApiServices {
+            public function __construct(
+                PostmanCollectionGenerator $postmanGenerator,
+                InsomniaWorkspaceGenerator $insomniaGenerator
+            ) {
+                parent::__construct();
+                $this->postmanGenerator = $postmanGenerator;
+                $this->insomniaGenerator = $insomniaGenerator;
+            }
+
+            protected function inspectRoutes(): void
+            {
+            }
+        };
+
+        $this->assertSame(
+            ['postman' => true],
+            $service->generate(false, ['movile'], null, 'postman')
+        );
+        $this->assertSame(
+            ['insomnia' => true],
+            $service->generate(false, ['movile'], null, 'insomnia')
+        );
     }
 }
