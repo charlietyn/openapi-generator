@@ -259,22 +259,6 @@ class OpenApiServices
     }
 
     /**
-     * Build the OpenAPI title based on API type filters.
-     */
-    protected function buildTitleForApiTypes(?array $apiTypes): string
-    {
-        $info = config('openapi.info', []);
-        $baseTitle = $info['title'] ?? $this->title;
-        $baseTitle = PlaceholderHelper::replace($baseTitle);
-
-        $suffix = empty($apiTypes)
-            ? 'full-api'
-            : implode(', ', $apiTypes);
-
-        return "{$baseTitle} ({$suffix})";
-    }
-
-    /**
      * Build dynamic servers with placeholder replacement
      */
     protected function buildDynamicServers(): array

@@ -150,9 +150,9 @@ return [
     */
 
     'api_types' => [
-        'api' => [
-            'prefix' => 'api',
-            'file' => 'api.php',
+        'admin' => [
+            'prefix' => 'admin',
+            'file' => 'api.admin.php',
             'description' => 'Admin API - Backend management endpoints',
             'folder_name' => 'API Admin',
             'icon' => '🔐',
@@ -248,7 +248,8 @@ return [
         'api/documentation/*',
         'sanctum/*',
         '_ignition/*',
-        'api/modules',
+        'admin/modules',
+        'admin/modules',
         'telescope/*',
         'horizon/*',
         /* web routes*/
