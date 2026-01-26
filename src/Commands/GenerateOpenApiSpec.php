@@ -124,9 +124,12 @@ class GenerateOpenApiSpec extends Command
                     $environment,
                     null
                 );
-            } else {
-                $content = Yaml::dump($spec, 10, 2);
+                return self::SUCCESS;
             }
+
+            $content = $format === 'json'
+                ? json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+                : Yaml::dump($spec, 10, 2);
 
             File::ensureDirectoryExists(dirname($output));
             File::put($output, $content);
