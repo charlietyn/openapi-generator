@@ -235,6 +235,42 @@ class OpenApiServices
     }
 
     /**
+     * Build the info title based on selected API types.
+     */
+    protected function buildTitleForApiTypes(?array $apiTypes): string
+    {
+        $baseTitle = $this->spec['info']['title'] ?? $this->title;
+
+        if (empty($apiTypes)) {
+            return $baseTitle;
+        }
+
+        $apiConfig = config('openapi.api_types', []);
+        $labels = [];
+
+        foreach ($apiTypes as $type) {
+            $config = $apiConfig[$type] ?? [];
+            $label = $config['folder_name']
+                ?? $config['description']
+                ?? $config['prefix']
+                ?? $type;
+            $label = trim((string) $label);
+
+            if ($label !== '') {
+                $labels[] = $label;
+            }
+        }
+
+        if (empty($labels)) {
+            return $baseTitle;
+        }
+
+        $suffix = implode(', ', array_values(array_unique($labels)));
+
+        return "{$baseTitle} ({$suffix})";
+    }
+
+    /**
      * Build dynamic info with placeholder replacement
      */
     protected function buildDynamicInfo(): array
