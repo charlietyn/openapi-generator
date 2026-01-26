@@ -175,7 +175,7 @@ pm.globals.set('last_user_id', pm.response.json().data.id);
 
 ### 7. **API Type Filtering**
 
-Filter documentation by API type:
+Filter documentation by API type (only enabled channels in `config/openapi.php` are allowed):
 
 ```bash
 # Generate only API admin documentation
@@ -187,6 +187,8 @@ php artisan openapi:generate --all --api-type=mobile --api-type=site
 # Via URL
 GET /documentation/openapi.json?api_type=api,mobile
 ```
+
+If an API type is unknown or disabled, the generator returns a validation error.
 
 ---
 
@@ -271,12 +273,12 @@ You should see the command help with all available options.
 php artisan openapi:generate --all
 ```
 
-This generates:
-- `storage/app/openapi.json`
-- `storage/app/openapi.yaml`
-- `storage/app/postman-collection.json`
-- `storage/app/postman-env-*.json` (3 files)
-- `storage/app/insomnia-workspace.json`
+This generates (default output path: `storage/app/public/openapi`):
+- `storage/app/public/openapi/openapi-all.json`
+- `storage/app/public/openapi/openapi-all.yaml`
+- `storage/app/public/openapi/postman-all.json`
+- `storage/app/public/openapi/postman-env-*.json` (3 files)
+- `storage/app/public/openapi/insomnia-all.json`
 
 ### Generate Specific Format
 
@@ -292,6 +294,35 @@ php artisan openapi:generate --with-postman
 
 # Only Insomnia
 php artisan openapi:generate --with-insomnia
+```
+
+### Channel-Based Export Examples
+
+Use `--api-type` (CLI) or `api_type` (HTTP) to generate per-channel exports. Filenames always include the channel suffix or `-all`.
+
+```bash
+# CLI: generate only mobile channel
+php artisan openapi:generate --all --api-type=mobile
+# Outputs:
+# - storage/app/public/openapi/openapi-mobile.json
+# - storage/app/public/openapi/openapi-mobile.yaml
+# - storage/app/public/openapi/postman-mobile.json
+# - storage/app/public/openapi/insomnia-mobile.json
+
+# CLI: generate all channels
+php artisan openapi:generate --all
+# Outputs:
+# - storage/app/public/openapi/openapi-all.json
+# - storage/app/public/openapi/openapi-all.yaml
+# - storage/app/public/openapi/postman-all.json
+# - storage/app/public/openapi/insomnia-all.json
+```
+
+```bash
+# HTTP: generate only api + mobile channels
+curl "http://localhost:8000/documentation/openapi.json?api_type=api,mobile"
+curl "http://localhost:8000/documentation/postman?api_type=mobile"
+curl "http://localhost:8000/documentation/insomnia?api_type=mobile"
 ```
 
 ### Access via HTTP
@@ -312,17 +343,17 @@ curl http://localhost:8000/documentation/insomnia
 
 **Postman**:
 1. Open Postman
-2. Import → File → Select `postman-collection.json`
+2. Import → File → Select `postman-all.json` or `postman-<channel>.json`
 3. Import each `postman-env-*.json` as environments
 
 **Insomnia**:
 1. Open Insomnia
-2. Import → From File → Select `insomnia-workspace.json`
-3. Everything is imported (spec + environments)
+2. Import → From File → Select `insomnia-all.json`
+3. The Spec tab shows a minimal descriptive OpenAPI (info + servers only), while the Collections contain the routes.
 
 **Swagger UI**:
 1. Go to [Swagger Editor](https://editor.swagger.io/)
-2. File → Import File → Select `openapi.yaml`
+2. File → Import File → Select `openapi-all.yaml` or `openapi-<channel>.yaml`
 
 ---
 
@@ -421,13 +452,18 @@ return [
             'prefix' => 'api',
             'folder_name' => 'API Admin',
             'description' => 'Administration API',
+            'enabled' => true,
         ],
         'mobile' => [
             'prefix' => 'mobile',
             'folder_name' => 'API Mobile',
             'description' => 'Mobile App API',
+            'enabled' => true,
         ],
     ],
+
+    // Export output directory
+    'output_path' => storage_path('app/public/openapi'),
 
     // Nwidart Modules Support
     'nwidart' => [
@@ -528,6 +564,8 @@ GET /documentation/postman?api_type=site
 
 **Backward compatibility note**: the legacy API type key `movile` is still accepted as a temporary alias for `mobile` in CLI flags and HTTP query parameters, but it is deprecated and may be removed in a future major release.
 
+If an API type is unknown or disabled, generation fails with a validation error.
+
 ### Specifying Environment
 
 ```bash
@@ -537,7 +575,7 @@ php artisan openapi:generate --all --environment=production
 ### Custom Output Path
 
 ```bash
-php artisan openapi:generate --output=/custom/path/openapi.json
+php artisan openapi:generate --output=/custom/path/openapi-all.json
 ```
 
 ### Disable Cache

@@ -7,6 +7,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Ronu\OpenApiGenerator\Services\EnvironmentGenerator;
 use Ronu\OpenApiGenerator\Services\InsomniaWorkspaceGenerator;
 use Ronu\OpenApiGenerator\Services\OpenApiServices;
@@ -82,6 +83,11 @@ class OpenApiController extends Controller
 
             return $this->returnYaml($spec, $filename);
 
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'error' => 'Invalid api_type parameter',
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to generate specification',
@@ -106,12 +112,11 @@ class OpenApiController extends Controller
 
         $this->generator->setApiTypeFilter($apiTypes);
         $spec = $this->generator->generate();
-        $apiTypesName = !empty($apiTypes) ? implode('-', $apiTypes) : '';
-
         $postmanGen = app(PostmanCollectionGenerator::class);
         $collection = $postmanGen->generate($spec, $environment, $apiTypes);
+        $filename = $this->generator->generateFilename('postman', $apiTypes, null);
 
-        $filename = $this->buildFilename('postman-'.$apiTypesName, $apiTypes);
+        $this->storeGeneratedFile($filename, json_encode($collection, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         return response(json_encode($collection, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), 200)
             ->header('Content-Type', 'application/json')
@@ -134,8 +139,9 @@ class OpenApiController extends Controller
 
         $insomniaGen = app(InsomniaWorkspaceGenerator::class);
         $workspace = $insomniaGen->generate($spec, $environment, $apiTypes);
-        $apiTypesName = !empty($apiTypes) ? implode('-', $apiTypes) : '';
-        $filename = $this->buildFilename('insomnia-'.$apiTypesName, $apiTypes);
+        $filename = $this->generator->generateFilename('insomnia', $apiTypes, null);
+
+        $this->storeGeneratedFile($filename, json_encode($workspace, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         return response(json_encode($workspace, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), 200)
             ->header('Content-Type', 'application/json')
@@ -179,29 +185,19 @@ class OpenApiController extends Controller
 
         $types = array_map('trim', explode(',', $typeParam));
         $types = array_map(fn($type) => $type === 'movile' ? 'mobile' : $type, $types);
-        $validTypes = array_keys(config('openapi.api_types', []));
+        $validTypes = array_keys($this->getEnabledApiTypes());
+        $invalidTypes = array_diff($types, $validTypes);
+
+        if (!empty($invalidTypes)) {
+            throw new \InvalidArgumentException(
+                'Unknown or disabled API types: ' . implode(', ', $invalidTypes)
+            );
+        }
+
         $types = array_intersect($types, $validTypes);
 
         return array_values($types);
     }
-
-    /**
-     * Build filename based on API types
-     *
-     * @param string $base Base filename
-     * @param array $apiTypes API types
-     * @return string Filename
-     */
-    protected function buildFilename(string $base, array $apiTypes): string
-    {
-        if (empty($apiTypes)) {
-            return "{$base}-all.json";
-        }
-
-        $suffix = implode('-', $apiTypes);
-        return "{$base}-{$suffix}.json";
-    }
-
 
     /**
      * Get environment configuration
@@ -295,6 +291,8 @@ class OpenApiController extends Controller
     {
         $json = json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
+        $this->storeGeneratedFile($filename, $json);
+
         return response($json, 200)
             ->header('Content-Type', 'application/json')
             ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
@@ -311,6 +309,8 @@ class OpenApiController extends Controller
     {
         $filename = str_replace('.json', '.yaml', $filename);
         $yaml = Yaml::dump($spec, 10, 2);
+
+        $this->storeGeneratedFile($filename, $yaml);
 
         return response($yaml, 200)
             ->header('Content-Type', 'application/x-yaml')
@@ -336,7 +336,7 @@ class OpenApiController extends Controller
      */
     public function info(): JsonResponse
     {
-        $apiTypes = config('openapi.api_types');
+        $apiTypes = $this->getEnabledApiTypes();
         $environments = array_keys(config('openapi.environments'));
 
         return response()->json([
@@ -363,5 +363,29 @@ class OpenApiController extends Controller
                 'Postman collection for mobile' => route('openapi.postman') . '?api_type=mobile&environment=production',
             ],
         ]);
+    }
+
+    /**
+     * Get enabled API types from configuration.
+     */
+    protected function getEnabledApiTypes(): array
+    {
+        $apiTypes = config('openapi.api_types', []);
+
+        return array_filter(
+            $apiTypes,
+            static fn(array $config): bool => ($config['enabled'] ?? true) === true
+        );
+    }
+
+    /**
+     * Store generated documentation files to the configured output path.
+     */
+    protected function storeGeneratedFile(string $filename, string $contents): void
+    {
+        $outputPath = config('openapi.output_path', storage_path('app/public/openapi'));
+        File::ensureDirectoryExists($outputPath);
+
+        File::put($outputPath . DIRECTORY_SEPARATOR . $filename, $contents);
     }
 }

@@ -58,7 +58,9 @@ class OpenApiServices
      */
     public function setApiTypeFilter(array $types): self
     {
-        $this->apiTypeFilter = $this->normalizeApiTypes($types);
+        $normalized = $this->normalizeApiTypes($types);
+        $this->validateApiTypes($normalized);
+        $this->apiTypeFilter = $normalized;
 
         Log::channel('openapi')->info('API type filter set', [
             'types' => $this->apiTypeFilter,
@@ -79,6 +81,7 @@ class OpenApiServices
     ): array
     {
         $normalizedApiTypes = $this->normalizeApiTypes($apiTypes);
+        $this->validateApiTypes($normalizedApiTypes);
         $this->apiTypeFilter = $normalizedApiTypes;
         $this->environment = $environment ?? config('openapi.default_environment');
 
@@ -100,7 +103,7 @@ class OpenApiServices
             $this->applyEnvironment($environment);
         }
 
-        $result = $this->convertToFormat($this->spec, $format, $environment);
+        $result = $this->convertToFormat($this->spec, $format, $environment, $normalizedApiTypes);
 
         if (config('openapi.cache.enabled')) {
             Cache::put($cacheKey, $result, config('openapi.cache.ttl'));
@@ -137,6 +140,38 @@ class OpenApiServices
     }
 
     /**
+     * Validate that API types exist and are enabled.
+     */
+    private function validateApiTypes(?array $types): void
+    {
+        if (empty($types)) {
+            return;
+        }
+
+        $available = array_keys($this->getEnabledApiTypes());
+        $invalid = array_diff($types, $available);
+
+        if (!empty($invalid)) {
+            throw new \InvalidArgumentException(
+                'Unknown or disabled API types: ' . implode(', ', $invalid)
+            );
+        }
+    }
+
+    /**
+     * Get enabled API types from configuration.
+     */
+    private function getEnabledApiTypes(): array
+    {
+        $apiTypes = config('openapi.api_types', []);
+
+        return array_filter(
+            $apiTypes,
+            static fn(array $config): bool => ($config['enabled'] ?? true) === true
+        );
+    }
+
+    /**
      * Build cache key with filters
      */
     protected function buildCacheKey(?array $apiTypes, ?string $environment, string $format): string
@@ -151,11 +186,18 @@ class OpenApiServices
     /**
      * Convert OpenAPI spec to requested format
      */
-    protected function convertToFormat(array $spec, string $format, ?string $environment): array
+    protected function convertToFormat(
+        array $spec,
+        string $format,
+        ?string $environment,
+        ?array $apiTypes = null
+    ): array
     {
+        $apiTypes = $apiTypes ?? [];
+
         return match ($format) {
-            'postman' => $this->postmanGenerator->generate($spec, $environment ?? 'artisan'),
-            'insomnia' => $this->insomniaGenerator->generate($spec, $environment ?? 'artisan'),
+            'postman' => $this->postmanGenerator->generate($spec, $environment ?? 'artisan', $apiTypes),
+            'insomnia' => $this->insomniaGenerator->generate($spec, $environment ?? 'artisan', $apiTypes),
             default => $spec,
         };
     }
@@ -195,7 +237,8 @@ class OpenApiServices
      */
     protected function buildDynamicInfo(): array
     {
-        return [
+        $info = config('openapi.info', []);
+        $default = [
             'title' => $this->title,
             'description' => 'Complete API documentation for all application modules',
             'version' => env('API_VERSION', '1.0.0'),
@@ -209,6 +252,8 @@ class OpenApiServices
                 'url' => 'https://opensource.org/licenses/MIT',
             ],
         ];
+
+        return PlaceholderHelper::replace(array_replace_recursive($default, $info));
     }
 
     /**
@@ -216,7 +261,7 @@ class OpenApiServices
      */
     protected function buildDynamicServers(): array
     {
-        return PlaceholderHelper::replace([
+        $servers = config('openapi.servers', [
             [
                 'url' => 'http://127.0.0.1:8000',
                 'description' => 'Artisan server',
@@ -230,6 +275,8 @@ class OpenApiServices
                 'description' => 'Production Server',
             ],
         ]);
+
+        return PlaceholderHelper::replace($servers);
     }
 
     /**
@@ -586,7 +633,7 @@ class OpenApiServices
      */
     protected function isApiRoute(string $uri): bool
     {
-        $apiPrefixes = array_column(config('openapi.api_types'), 'prefix');
+        $apiPrefixes = array_column($this->getEnabledApiTypes(), 'prefix');
 
         $isApi = false;
         foreach ($apiPrefixes as $prefix) {
@@ -612,7 +659,7 @@ class OpenApiServices
             return true;
         }
 
-        $apiTypes = config('openapi.api_types');
+        $apiTypes = $this->getEnabledApiTypes();
 
         foreach ($this->apiTypeFilter as $filterType) {
             if (!isset($apiTypes[$filterType])) {
@@ -1384,12 +1431,9 @@ class OpenApiServices
         } else {
             $parts[] = 'all';
         }
+        $extension = $format === 'openapi' ? 'json' : 'json';
 
-        if ($environment) {
-            $parts[] = $environment;
-        }
-
-        return implode('-', $parts) . '.' . ($format === 'openapi' ? 'json' : 'json');
+        return implode('-', $parts) . '.' . $extension;
     }
 
     /**
