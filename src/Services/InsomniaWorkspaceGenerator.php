@@ -93,20 +93,20 @@ class InsomniaWorkspaceGenerator
 
     /**
      * Build workspace resource
+     *
+     * The title already comes formatted from OpenApiServices with the apiType suffix,
+     * so we don't need to add it again here.
      */
     protected function buildWorkspace(int $timestamp): array
     {
         $info = $this->spec['info'] ?? [];
-        $apiTypesSuffix = !empty($this->apiTypes)
-            ? ' (' . implode(', ', $this->apiTypes) . ')'
-            : '';
 
         return [
             '_id' => $this->workspaceId,
             'parentId' => null,
             'modified' => $timestamp,
             'created' => $timestamp,
-            'name' => ($info['title'] ?? 'Laravel API') . $apiTypesSuffix,
+            'name' => $info['title'] ?? 'Laravel API',
             'description' => $info['description'] ?? '',
             'scope' => 'design',
             '_type' => 'workspace',

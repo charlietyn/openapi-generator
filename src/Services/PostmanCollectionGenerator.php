@@ -67,16 +67,18 @@ class PostmanCollectionGenerator
     /**
      * Build collection info
      *
+     * The title already comes formatted from OpenApiServices with the apiType suffix,
+     * so we don't need to add it again here.
+     *
      * @return array
      */
     protected function buildInfo(): array
     {
         $info = $this->spec['info'] ?? [];
-        $apiTypesSuffix = !empty($this->apiTypes) ? ' (' . implode(', ', $this->apiTypes) . ')' : '';
 
         return [
             '_postman_id' => $this->collectionId,
-            'name' => ($info['title'] ?? 'Laravel API') . $apiTypesSuffix,
+            'name' => $info['title'] ?? 'Laravel API',
             'description' => $info['description'] ?? '',
             'schema' => 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
             '_exporter_id' => uniqid(),
