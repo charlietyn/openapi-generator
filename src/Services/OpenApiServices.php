@@ -212,13 +212,40 @@ class OpenApiServices
         $envConfig = config("openapi.environments.{$environment}");
 
         if ($envConfig) {
+            $baseUrl = $this->resolveEnvironmentBaseUrl($envConfig);
+            if ($baseUrl === null) {
+                return;
+            }
+
             $this->spec['servers'] = [
                 [
-                    'url' => $envConfig['base_url'],
-                    'description' => $envConfig['name'],
+                    'url' => $baseUrl,
+                    'description' => $envConfig['name'] ?? $environment,
                 ],
             ];
         }
+    }
+
+    /**
+     * Resolve the base URL for an environment configuration.
+     */
+    protected function resolveEnvironmentBaseUrl(array $envConfig): ?string
+    {
+        $baseUrl = $envConfig['base_url']
+            ?? ($envConfig['variables']['base_url'] ?? null);
+
+        if ($baseUrl !== null) {
+            return $baseUrl;
+        }
+
+        if (!empty($envConfig['parent'])) {
+            $parentConfig = config("openapi.environments.{$envConfig['parent']}");
+            if ($parentConfig) {
+                return $this->resolveEnvironmentBaseUrl($parentConfig);
+            }
+        }
+
+        return null;
     }
 
     /**
