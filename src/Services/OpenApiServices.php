@@ -94,6 +94,8 @@ class OpenApiServices
             }
         }
 
+        $this->spec['info']['title'] = $this->buildTitleForApiTypes($normalizedApiTypes);
+
         $this->inspectRoutes();
         $this->spec['paths'] = $this->paths;
         $this->spec['tags'] = array_values($this->tags);
