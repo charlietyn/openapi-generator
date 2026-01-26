@@ -1,7 +1,7 @@
 {
     "name": "ronu/laravel-openapi-generator",
     "description": "Automatic OpenAPI 3.0.3 documentation generator for Laravel with Postman and Insomnia export support",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "type": "library",
     "keywords": [
         "laravel",
