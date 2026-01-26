@@ -1,12 +1,49 @@
 {
     "summary": "List __VAR:entity_plural__",
-    "description": "Retrieves a paginated list of __VAR:entity_plural__ with support for filtering, sorting, and relation loading.\n\n## Query Methods\n\n| Method | Use Case |\n|--------|----------|\n| **GET** | Simple queries with pagination only |\n| **PUT** | Advanced queries with filters, relations, and sorting |\n\n## Query Parameters\n\n### Pagination\nControl the result set size and page navigation.\n```json\n{\"pagination\": {\"page\": 1, \"pagesize\": 15}}\n```\n\n### Relations\nEager load related entities to avoid N+1 queries.\n```json\n{\"relations\": [\"user\", \"category\"]}\n```\n- Use `[\"all\"]` to load all available relations\n- Use dot notation for nested relations: `\"user.roles\"`\n\n### Filtering (attr)\nFilter by exact field values.\n```json\n{\"attr\": {\"status\": \"active\", \"type\": [\"A\", \"B\"]}}\n```\n- Multiple values for same field = OR condition\n- Different fields = AND condition\n\n### Advanced Filtering (oper)\nBuild complex queries with operators.\n```json\n{\"oper\": [{\"and\": [{\"0\": \"like|name|%search%|0\"}]}]}\n```\nFormat: `\"operator|field|value|case_sensitive\"`\n\nOperators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `like`\n\n### Sorting\nSort by one or more fields.\n```json\n{\"orderby\": [{\"created_at\": \"desc\"}, {\"name\": \"asc\"}]}\n```\n\n### Field Selection\nReturn only specific fields.\n```json\n{\"select\": [\"id\", \"name\", \"status\"]}\n```",
+    "description": "Retrieves a paginated list of __VAR:entity_plural__ with support for filtering, sorting, and eager loading of relations.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Query Parameters\n\n### Pagination\n```json\n{\n  \"pagination\": {\n    \"page\": 1,\n    \"pagesize\": 15\n  }\n}\n```\n\n### Loading Relations\nUse dot notation for nested relations.\n```json\n{\n  \"relations\": [\"user\", \"category\", \"user.roles\"]\n}\n```\n\n### Filtering by Attributes\n```json\n{\n  \"attr\": {\n    \"status\": \"active\",\n    \"type\": [\"A\", \"B\"]\n  }\n}\n```\n\n### Advanced Filtering (Operators)\nFormat: `operator|field|value|case_sensitive`\n```json\n{\n  \"oper\": [\n    {\n      \"and\": [\n        {\"0\": \"like|name|%search%|0\"},\n        {\"1\": \">|created_at|2024-01-01|0\"}\n      ]\n    }\n  ]\n}\n```\n**Operators:** `=`, `!=`, `<`, `>`, `<=`, `>=`, `like`\n\n### Sorting\n```json\n{\n  \"orderby\": [\n    {\"created_at\": \"desc\"},\n    {\"name\": \"asc\"}\n  ]\n}\n```\n\n### Field Selection\n```json\n{\n  \"select\": [\"id\", \"name\", \"status\"]\n}\n```",
     "tags": [
         "__VAR:module__"
     ],
+    "parameters": [
+        {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Page number for pagination",
+            "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "example": 1
+            }
+        },
+        {
+            "name": "pagesize",
+            "in": "query",
+            "required": false,
+            "description": "Number of items per page",
+            "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 15,
+                "example": 15
+            }
+        },
+        {
+            "name": "relations",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated list of relations to load",
+            "schema": {
+                "type": "string"
+            },
+            "example": "user,category"
+        }
+    ],
     "requestBody": {
         "required": false,
-        "description": "Query configuration for filtering, pagination, and relation loading.",
+        "description": "Advanced query configuration (for PUT/POST requests)",
         "content": {
             "application/json": {
                 "schema": {
@@ -20,44 +57,31 @@
                         },
                         "pagination": {
                             "type": "object",
-                            "description": "Pagination settings",
                             "properties": {
-                                "page": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "default": 1,
-                                    "example": 1
-                                },
-                                "pagesize": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "maximum": 100,
-                                    "default": 15,
-                                    "example": 15
-                                }
+                                "page": {"type": "integer", "example": 1},
+                                "pagesize": {"type": "integer", "example": 15}
                             }
                         },
                         "select": {
                             "type": "array",
-                            "description": "Fields to return (empty = all)",
+                            "description": "Fields to return",
                             "items": {"type": "string"},
-                            "example": ["id", "name", "created_at"]
+                            "example": "__JSON:fields_list__"
                         },
                         "attr": {
                             "type": "object",
-                            "description": "Exact match filters",
-                            "additionalProperties": true,
+                            "description": "Filter by exact attribute values",
                             "example": "__JSON:attr_examples__"
                         },
                         "oper": {
                             "type": "array",
-                            "description": "Advanced operator filters",
+                            "description": "Advanced operator-based filters",
                             "items": {"type": "object"},
                             "example": "__JSON:oper_examples__"
                         },
                         "orderby": {
                             "type": "array",
-                            "description": "Sort configuration",
+                            "description": "Sorting configuration",
                             "items": {"type": "object"},
                             "example": "__JSON:orderby_examples__"
                         }
@@ -81,7 +105,6 @@
                             },
                             "meta": {
                                 "type": "object",
-                                "description": "Pagination metadata",
                                 "properties": {
                                     "current_page": {"type": "integer", "example": 1},
                                     "from": {"type": "integer", "example": 1},
@@ -93,7 +116,6 @@
                             },
                             "links": {
                                 "type": "object",
-                                "description": "Pagination navigation links",
                                 "properties": {
                                     "first": {"type": "string", "format": "uri"},
                                     "last": {"type": "string", "format": "uri"},
@@ -107,7 +129,7 @@
             }
         },
         "400": {
-            "description": "Invalid query parameters provided.",
+            "description": "Invalid query parameters.",
             "content": {
                 "application/json": {
                     "schema": {

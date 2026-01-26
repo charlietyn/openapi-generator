@@ -1,12 +1,12 @@
 {
     "summary": "Create __VAR:entity_singular__",
-    "description": "Creates a new __VAR:entity_singular__ record with the provided data.\n\n## Request Body\n\nSubmit a JSON object with the required fields. The server will validate all input before persisting.\n\n## Validation\n\n__VAR:validation_description__\n\n## Response\n\nOn success, returns the created resource with:\n- Auto-generated `id`\n- All submitted fields\n- Timestamps (`created_at`, `updated_at`)\n- Default values for optional fields",
+    "description": "Creates a new __VAR:entity_singular__ record in the database.\n\n---\n\n## Model Information\n\n### Fillable Fields\nThese fields can be set when creating:\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Validation Rules\n__VAR:validation_description__\n\n---\n\n## Response\n\nOn success, returns the created resource with:\n- Auto-generated `id`\n- All submitted fields\n- Timestamps (`created_at`, `updated_at`)\n- Default values for optional fields",
     "tags": [
         "__VAR:module__"
     ],
     "requestBody": {
         "required": true,
-        "description": "__VAR:entity_singular__ data to create",
+        "description": "Data for creating a new __VAR:entity_singular__",
         "content": {
             "application/json": {
                 "schema": "__JSON:request_schema__",
@@ -37,7 +37,7 @@
             }
         },
         "422": {
-            "description": "Validation error. Returns field-specific error messages.",
+            "description": "Validation error.",
             "content": {
                 "application/json": {
                     "schema": {
@@ -49,7 +49,6 @@
                             },
                             "errors": {
                                 "type": "object",
-                                "description": "Field names as keys, error arrays as values",
                                 "additionalProperties": {
                                     "type": "array",
                                     "items": {"type": "string"}

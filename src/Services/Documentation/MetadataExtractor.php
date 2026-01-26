@@ -66,7 +66,16 @@ class MetadataExtractor
             'form_request' => $formRequestClass,
         ]);
 
+        // Pre-compute common values
+        $modelFields = $this->getModelFields($modelClass);
+        $modelRelations = $this->getModelRelations($modelClass);
+        $relationsList = $this->getRelationsList($modelClass);
+        $fillableFields = $this->getFillableFields($modelClass);
+
         $metadata = [
+            // ═══════════════════════════════════════════════════════════════
+            // ENTITY INFO
+            // ═══════════════════════════════════════════════════════════════
             'entity' => $entity,
             'entity_singular' => $this->getSingular($entity),
             'entity_plural' => $this->getPlural($entity),
@@ -76,33 +85,61 @@ class MetadataExtractor
             'scenario' => $scenario,
             'table_name' => $this->getTableName($modelClass),
             'model_class' => $modelClass,
-            'available_fields' => $this->getModelFields($modelClass),
-            'available_relations' => $this->getModelRelations($modelClass),
-            'relations_list' => $this->getRelationsList($modelClass),
-            'fillable_fields' => $this->getFillableFields($modelClass),
+
+            // ═══════════════════════════════════════════════════════════════
+            // MODEL FIELDS
+            // ═══════════════════════════════════════════════════════════════
+            'available_fields' => $modelFields,
+            'fields_list' => array_keys($modelFields),
+            'fields_description' => $this->generateFieldsDescription($modelFields),
+            'fillable_fields' => $fillableFields,
+            'fillable_list' => $fillableFields,
             'hidden_fields' => $this->getHiddenFields($modelClass),
             'casts' => $this->getCasts($modelClass),
-            'has_relations' => $this->hasRelations($modelClass),
 
+            // ═══════════════════════════════════════════════════════════════
+            // MODEL RELATIONS
+            // ═══════════════════════════════════════════════════════════════
+            'available_relations' => $modelRelations,
+            'relations_list' => $relationsList,
+            'relations_description' => $this->getRelationsDescription($modelClass),
+            'has_relations' => !empty($modelRelations),
+
+            // ═══════════════════════════════════════════════════════════════
+            // VALIDATION (from FormRequest)
+            // ═══════════════════════════════════════════════════════════════
             'form_request_class' => $formRequestClass,
             'validation_rules' => $this->getValidationRulesFromFormRequest($formRequestClass, $scenario),
             'required_fields' => $this->getRequiredFieldsFromFormRequest($formRequestClass, $scenario),
             'has_validation' => $formRequestClass !== null,
+            'validation_description' => $this->formatValidationRulesFromFormRequest($formRequestClass, $scenario),
+            'validation_errors_example' => $this->generateValidationErrorsExampleFromFormRequest($formRequestClass, $scenario),
 
+            // ═══════════════════════════════════════════════════════════════
+            // SCHEMAS & EXAMPLES
+            // ═══════════════════════════════════════════════════════════════
             'model_schema' => $this->generateModelSchema($modelClass),
             'request_schema' => $this->generateRequestSchemaFromFormRequest($formRequestClass, $scenario),
             'request_example' => $this->generateRequestExampleFromFormRequest($formRequestClass, $scenario),
             'response_example' => $this->generateResponseExample($modelClass),
 
+            // ═══════════════════════════════════════════════════════════════
+            // QUERY EXAMPLES (for list endpoint)
+            // ═══════════════════════════════════════════════════════════════
             'attr_examples' => $this->generateAttrExamples($modelClass),
             'oper_examples' => $this->generateOperExamples($modelClass),
             'orderby_examples' => $this->generateOrderByExamples($modelClass),
 
+            // ═══════════════════════════════════════════════════════════════
+            // DESCRIPTIONS
+            // ═══════════════════════════════════════════════════════════════
             'table_description' => $this->getTableDescription($entity, $module),
-            'validation_description' => $this->formatValidationRulesFromFormRequest($formRequestClass, $scenario),
-            'validation_errors_example' => $this->generateValidationErrorsExampleFromFormRequest($formRequestClass, $scenario),
 
-            'relations_description' => $this->getRelationsDescription($modelClass),
+            // ═══════════════════════════════════════════════════════════════
+            // STATIC EXAMPLES (for documentation)
+            // ═══════════════════════════════════════════════════════════════
+            'example_id' => 1,
+            'example_token' => 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0IiwiaWF0IjoxNzA0MDY3MjAwLCJleHAiOjE3MDQxNTM2MDAsInN1YiI6IjEifQ.example_signature',
         ];
 
         $this->cache[$cacheKey] = $metadata;
@@ -1627,12 +1664,32 @@ class MetadataExtractor
         $relations = $this->getModelRelations($modelClass);
 
         if (empty($relations)) {
-            return 'No relations available.';
+            return 'No relations available for this model.';
         }
 
         $descriptions = [];
         foreach ($relations as $name => $info) {
-            $descriptions[] = "- **{$name}** ({$info['type']})";
+            $descriptions[] = "- `{$name}` ({$info['type']})";
+        }
+
+        return implode("\n", $descriptions);
+    }
+
+    /**
+     * Generate markdown description of model fields
+     *
+     * @param array $fields Fields array [field_name => type]
+     * @return string Markdown formatted fields description
+     */
+    protected function generateFieldsDescription(array $fields): string
+    {
+        if (empty($fields)) {
+            return 'No fields available for this model.';
+        }
+
+        $descriptions = [];
+        foreach ($fields as $field => $type) {
+            $descriptions[] = "- `{$field}` ({$type})";
         }
 
         return implode("\n", $descriptions);

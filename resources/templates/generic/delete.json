@@ -1,6 +1,6 @@
 {
     "summary": "Delete __VAR:entity_singular__",
-    "description": "Permanently deletes a __VAR:entity_singular__ from the database.\n\n## Deletion Types\n\n| Type | Description |\n|------|-------------|\n| **Soft Delete** | Record marked as deleted, can be restored |\n| **Hard Delete** | Permanently removed, cannot be restored |\n\nThe actual behavior depends on the model configuration.\n\n## Force Delete\n\nUse `?force=true` to permanently delete a soft-deleted resource.\n\n## Related Resources\n\nDeletion may fail if the resource has related items that prevent removal (foreign key constraints).",
+    "description": "Deletes a __VAR:entity_singular__ record from the database.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Deletion Types\n\n| Type | Description |\n|------|-------------|\n| **Soft Delete** | Record marked as deleted (`deleted_at` timestamp), can be restored |\n| **Hard Delete** | Permanently removed from database, cannot be restored |\n\nThe behavior depends on whether the model uses Laravel's `SoftDeletes` trait.\n\n---\n\n## Force Delete\n\nTo permanently delete a soft-deleted resource:\n```\nDELETE /api/__VAR:entity_url__/__VAR:example_id__?force=true\n```\n\n---\n\n## Notes\n\n- DELETE is idempotent: deleting an already-deleted resource returns 404 (treated as success)\n- Deletion may fail if the resource has related items (foreign key constraints)",
     "tags": [
         "__VAR:module__"
     ],
@@ -13,7 +13,7 @@
             "schema": {
                 "type": "integer",
                 "minimum": 1,
-                "example": 1
+                "example": "__VAR:example_id__"
             }
         },
         {
@@ -51,10 +51,10 @@
             }
         },
         "204": {
-            "description": "__VAR:entity_singular__ deleted successfully (no content). This is the recommended REST response for DELETE operations."
+            "description": "__VAR:entity_singular__ deleted successfully (no content). Recommended REST response."
         },
         "404": {
-            "description": "__VAR:entity_singular__ not found. Note: DELETE is idempotent, so this can be treated as success.",
+            "description": "__VAR:entity_singular__ not found.",
             "content": {
                 "application/json": {
                     "schema": {
@@ -105,12 +105,10 @@
                             },
                             "related_count": {
                                 "type": "integer",
-                                "description": "Number of related items preventing deletion",
                                 "example": 5
                             },
                             "related_types": {
                                 "type": "array",
-                                "description": "Types of related resources",
                                 "items": {"type": "string"},
                                 "example": ["orders", "invoices"]
                             }
