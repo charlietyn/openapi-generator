@@ -1588,7 +1588,7 @@ class MetadataExtractor
             $relations = [];
 
             foreach ($methods as $method) {
-                if ($method->class !== $modelClass) {
+                if (strtolower($method->class) !== strtolower($modelClass)) {
                     continue;
                 }
 
