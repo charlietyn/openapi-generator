@@ -1,0 +1,204 @@
+{
+    "summary": "Bulk update __VAR:entity_plural__",
+    "description": "Updates multiple __VAR:entity_singular__ records in a single request.\n\n---\n\n## Purpose\n\nThis endpoint allows you to **update multiple records simultaneously**, which is more efficient than making individual update requests. This is useful for:\n\n- **Batch operations**: Update multiple records with different values in one request\n- **Performance optimization**: Reduce API calls when updating many records\n- **Atomic operations**: All updates succeed or fail together (depending on implementation)\n\n---\n\n## Model Information\n\n### Updatable Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Request Format\n\nThe request body must contain an array of objects, where each object includes:\n\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| `id` | integer | **Yes** | The unique identifier of the record to update |\n| `...fields` | mixed | No | Any updatable field from the model |\n\n### Example Structure\n\n```json\n[\n    {\n        \"id\": 1,\n        \"field1\": \"new_value\",\n        \"field2\": \"another_value\"\n    },\n    {\n        \"id\": 2,\n        \"field1\": \"different_value\"\n    }\n]\n```\n\n---\n\n## Validation Rules\n\nEach item in the array must comply with the following validation rules:\n\n__VAR:validation_description__\n\n---\n\n## Behavior\n\n| Aspect | Description |\n|--------|-------------|\n| **Transaction** | All updates are wrapped in a database transaction |\n| **Atomicity** | If one update fails, all changes are rolled back |\n| **Response** | Returns all updated records or detailed error information |\n| **Partial Updates** | Only provided fields are updated (PATCH behavior) |\n\n---\n\n## Usage Example\n\n```javascript\n// Update multiple records at once\nconst response = await fetch('/api/__VAR:entity_plural__/bulk_update', {\n    method: 'PATCH',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify([\n        { id: 1, status: 'active', priority: 'high' },\n        { id: 2, status: 'inactive' },\n        { id: 3, name: 'Updated Name', status: 'pending' }\n    ])\n});\n\nif (response.ok) {\n    const { data } = await response.json();\n    console.log(`Updated ${data.length} records successfully`);\n}\n```",
+    "tags": [
+        "__VAR:module__"
+    ],
+    "requestBody": {
+        "required": true,
+        "description": "Array of __VAR:entity_singular__ objects to update. Each object must include the `id` field.",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": "__JSON:request_schema__"
+                },
+                "example": "__JSON:request_example__"
+            }
+        }
+    },
+    "responses": {
+        "200": {
+            "description": "All __VAR:entity_plural__ updated successfully.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "data": {
+                                "type": "array",
+                                "items": "__JSON:model_schema__"
+                            },
+                            "message": {
+                                "type": "string",
+                                "example": "__VAR:entity_plural__ updated successfully"
+                            },
+                            "updated_count": {
+                                "type": "integer",
+                                "description": "Number of records successfully updated",
+                                "example": 3
+                            }
+                        }
+                    },
+                    "example": {
+                        "data": "__JSON:response_example__",
+                        "message": "__VAR:entity_plural__ updated successfully",
+                        "updated_count": 3
+                    }
+                }
+            }
+        },
+        "207": {
+            "description": "Partial success - some records updated, others failed.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Some __VAR:entity_plural__ could not be updated."
+                            },
+                            "updated": {
+                                "type": "array",
+                                "description": "Successfully updated records",
+                                "items": "__JSON:model_schema__"
+                            },
+                            "failed": {
+                                "type": "array",
+                                "description": "Records that failed to update",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "integer"},
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "updated_count": {
+                                "type": "integer",
+                                "example": 2
+                            },
+                            "failed_count": {
+                                "type": "integer",
+                                "example": 1
+                            }
+                        }
+                    },
+                    "example": {
+                        "message": "Some __VAR:entity_plural__ could not be updated.",
+                        "updated": [],
+                        "failed": [
+                            {
+                                "id": 999,
+                                "errors": {
+                                    "id": ["The selected id is invalid."]
+                                }
+                            }
+                        ],
+                        "updated_count": 2,
+                        "failed_count": 1
+                    }
+                }
+            }
+        },
+        "404": {
+            "description": "One or more __VAR:entity_plural__ not found.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "One or more __VAR:entity_plural__ not found."
+                            },
+                            "not_found_ids": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "example": [999, 1000]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "422": {
+            "description": "Validation error - one or more items contain invalid data.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "The given data was invalid."
+                            },
+                            "errors": {
+                                "type": "object",
+                                "description": "Validation errors grouped by item index and field",
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": {"type": "string"}
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "message": "The given data was invalid.",
+                        "errors": {
+                            "0.id": ["The id field is required."],
+                            "1.email": ["The email must be a valid email address."]
+                        }
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Authentication required.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Unauthenticated."}
+                        }
+                    }
+                }
+            }
+        },
+        "403": {
+            "description": "Permission denied.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "This action is unauthorized."}
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal server error - transaction rolled back.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Error updating __VAR:entity_plural__. All changes have been rolled back."}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
