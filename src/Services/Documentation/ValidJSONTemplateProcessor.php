@@ -301,15 +301,26 @@ class ValidJSONTemplateProcessor
             }
         }
 
-        // Log any remaining unreplaced variables
+        // Log and clean up any remaining unreplaced variables
         preg_match_all('/__VAR:([^_]+)__/', $content, $stillUnreplacedVars);
         if (!empty($stillUnreplacedVars[1])) {
-            $this->log('error', "❌ Still unreplaced __VAR__ after processing: " . implode(', ', array_unique($stillUnreplacedVars[1])));
+            $this->log('warning', "⚠️ Unreplaced __VAR__ placeholders (replacing with empty string): " . implode(', ', array_unique($stillUnreplacedVars[1])));
+            // Replace unreplaced __VAR:*__ with empty string to keep JSON valid
+            $content = preg_replace('/__VAR:[^_]+__/', '', $content);
         }
 
-        preg_match_all('/__JSON:([^_]+)__/', $content, $stillUnreplacedJson);
+        preg_match_all('/"__JSON:([^_]+)__"/', $content, $stillUnreplacedJson);
         if (!empty($stillUnreplacedJson[1])) {
-            $this->log('error', "❌ Still unreplaced __JSON__ after processing: " . implode(', ', array_unique($stillUnreplacedJson[1])));
+            $this->log('warning', "⚠️ Unreplaced __JSON__ placeholders (replacing with null): " . implode(', ', array_unique($stillUnreplacedJson[1])));
+            // Replace unreplaced "__JSON:*__" (with quotes) with null to keep JSON valid
+            $content = preg_replace('/"__JSON:[^_]+__"/', 'null', $content);
+        }
+
+        // Also handle unquoted __JSON:*__ placeholders
+        preg_match_all('/__JSON:([^_]+)__/', $content, $stillUnreplacedJsonUnquoted);
+        if (!empty($stillUnreplacedJsonUnquoted[1])) {
+            $this->log('warning', "⚠️ Unreplaced unquoted __JSON__ placeholders (replacing with null): " . implode(', ', array_unique($stillUnreplacedJsonUnquoted[1])));
+            $content = preg_replace('/__JSON:[^_]+__/', 'null', $content);
         }
 
         return $content;
@@ -340,49 +351,22 @@ class ValidJSONTemplateProcessor
     /**
      * Clean up JSON output after variable replacement
      *
-     * Fixes common issues that arise when replacing placeholder strings
-     * with JSON values (arrays/objects).
+     * SIMPLIFIED VERSION: The processVariables() function already handles
+     * __JSON:*__ substitution correctly by replacing the placeholder WITH its
+     * surrounding quotes. This cleanup function now only handles edge cases
+     * that don't break valid JSON.
      *
      * @param string $json JSON string to clean
      * @return string Cleaned JSON string
      */
     protected function cleanupJsonOutput(string $json): string
     {
-        // Fix: "{"key":"value"}" → {"key":"value"}
-        // When a JSON object/array was inserted into a quoted placeholder
-        $patterns = [
-            // Array/Object inside quotes: "[{...}]" or "{...}"
-            '/"\s*(\[[\s\S]*?\])\s*"/' => '$1',  // "[...]" → [...]
-            '/"\s*(\{[\s\S]*?\})\s*"/' => '$1',  // "{...}" → {...}
+        // Only fix specific edge cases that are safe and won't break valid JSON
+        // The main __JSON:*__ replacement already handles quote removal correctly
 
-            // Double quotes around arrays: ""[" or "]""
-            '/""\[/' => '"[',
-            '/\]""/' => ']"',
-
-            // Escaped quotes that shouldn't be escaped
-            '/\\\\+"/' => '"',
-        ];
-
-        foreach ($patterns as $pattern => $replacement) {
-            $json = preg_replace($pattern, $replacement, $json);
-        }
-
-        // Simple string replacements for common issues
-        $replacements = [
-            '["{' => '[{',      // Array start with object
-            '}"]' => '}]',      // Array end with object
-            '"[{"' => '[{"',    // Quoted array of objects
-            '}]"' => '}]',      // End of array
-            ': "{' => ': {',    // Object value
-            '}",' => '},',      // Object in array
-            ',"{' => ',{',      // Next object in array
-            ': "[]"' => ': []', // Empty array (keep valid)
-            '""' => '"',        // Double empty quotes (edge case)
-        ];
-
-        foreach ($replacements as $search => $replace) {
-            $json = str_replace($search, $replace, $json);
-        }
+        // Fix trailing commas before closing brackets (invalid JSON)
+        $json = preg_replace('/,\s*}/', '}', $json);
+        $json = preg_replace('/,\s*]/', ']', $json);
 
         return $json;
     }
