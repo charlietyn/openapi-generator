@@ -881,11 +881,14 @@ class OpenApiServices
 
         $requestName = $this->generateRequestName($route, $prefix, $structure, $routeAction);
 
+        // Use the final action detected from URI (validate, bulk_update, etc.)
+        $finalAction = $requestName['final_action'] ?? $routeAction;
+
         $controller = $this->extractControllerClass($action);
 
         $documentation = $this->docResolver->resolveForOperation(
             $entity,
-            $routeAction,
+            $finalAction,
             $controller,
             $route
         );
@@ -900,10 +903,10 @@ class OpenApiServices
             'description' => $documentation['description'] ?? $requestName['description'],
             'tags' => [$tag],
             'parameters' => $this->extractParameters($route),
-            'responses' => $this->buildResponses($method, $routeAction),
+            'responses' => $this->buildResponses($method, $finalAction),
             'x-module' => $module,
             'x-entity' => $entity,
-            'x-action-type' => $routeAction,
+            'x-action-type' => $finalAction,
         ];
 
         $security = $this->extractSecurity($route);
@@ -914,7 +917,7 @@ class OpenApiServices
         if (in_array($method, ['post', 'put', 'patch'])) {
             $requestBody = $this->buildRequestBody(
                 $controller,
-                $routeAction,
+                $finalAction,
                 $documentation
             );
             if ($requestBody) {
@@ -1068,6 +1071,7 @@ class OpenApiServices
             'display_name' => $displayName,
             'technical_name' => $technicalName,
             'description' => $description,
+            'final_action' => $finalAction,
         ];
     }
 
@@ -1342,11 +1346,13 @@ class OpenApiServices
         $responses['401'] = $responseExamples['401'];
         $responses['403'] = $responseExamples['403'];
 
-        if (Str::contains($action, ['show', 'update', 'delete'])) {
+        // Handle show, update, delete and bulk operations that may have 404
+        if (Str::contains($action, ['show', 'update', 'delete', 'bulk_update', 'update_multiple', 'bulk_delete'])) {
             $responses['404'] = $responseExamples['404'];
         }
 
-        if (in_array($method, ['post', 'put', 'patch'])) {
+        // Handle validation errors for POST, PUT, PATCH and validate endpoint
+        if (in_array($method, ['post', 'put', 'patch']) || $action === 'validate') {
             $responses['422'] = $responseExamples['422'];
         }
 
