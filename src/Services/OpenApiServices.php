@@ -189,10 +189,10 @@ class OpenApiServices
      * Convert OpenAPI spec to requested format
      */
     protected function convertToFormat(
-        array $spec,
-        string $format,
+        array   $spec,
+        string  $format,
         ?string $environment,
-        ?array $apiTypes = null
+        ?array  $apiTypes = null
     ): array
     {
         $apiTypes = $apiTypes ?? [];
@@ -281,7 +281,7 @@ class OpenApiServices
                 ?? $config['description']
                 ?? $config['prefix']
                 ?? $type;
-            $label = trim((string) $label);
+            $label = trim((string)$label);
 
             if ($label !== '') {
                 $labels[] = $label;
@@ -357,7 +357,7 @@ class OpenApiServices
             Log::channel('openapi')->debug('Module root route detected', [
                 'uri' => $uri,
                 'segments' => $nonParams,
-                'module'=> $nonParams[1],
+                'module' => $nonParams[1],
                 'reason' => 'Only prefix + module, no entity',
             ]);
             return true;
@@ -620,8 +620,7 @@ class OpenApiServices
                     'params' => array_slice($parts, $segmentCount),
                 ];
             }
-        }
-        // PRIORITY 2: Is segment2 a GLOBAL ENTITY?
+        } // PRIORITY 2: Is segment2 a GLOBAL ENTITY?
         else if ($secondSegment && $this->isGlobalEntityModel($secondSegment)) {
             $structure = [
                 'prefix' => $prefix,
@@ -635,8 +634,7 @@ class OpenApiServices
                 'entity' => $secondSegment,
                 'module' => 'general',
             ]);
-        }
-        // PRIORITY 3: CUSTOM URIs (auth endpoints)
+        } // PRIORITY 3: CUSTOM URIs (auth endpoints)
         else if ($this->isAuthEndpoint($uri, $lastPart)) {
             $structure = [
                 'prefix' => $prefix,
@@ -644,8 +642,7 @@ class OpenApiServices
                 'entity' => 'auth',
                 'params' => array_slice($parts, $segmentCount),
             ];
-        }
-        // FALLBACK
+        } // FALLBACK
         else {
             $structure = [
                 'prefix' => $prefix,
@@ -1347,7 +1344,7 @@ class OpenApiServices
         $responses['403'] = $responseExamples['403'];
 
         // Handle show, update, delete and bulk operations that may have 404
-        if (Str::contains($action, ['show', 'update', 'delete', 'bulk_update', 'update_multiple', 'bulk_delete'])) {
+        if (Str::contains($action, ['show', 'update', 'delete', 'bulk_update', 'bulk-update', 'update_multiple', 'update-multiple', 'bulk_delete', 'bulk-delete'])) {
             $responses['404'] = $responseExamples['404'];
         }
 
@@ -1375,9 +1372,10 @@ class OpenApiServices
      */
     protected function buildRequestBody(
         ?string $controller,
-        string $action,
-        array $documentation = []
-    ): ?array {
+        string  $action,
+        array   $documentation = []
+    ): ?array
+    {
         // ==========================================
         // COMPREHENSIVE LOGGING POINT
         // ==========================================
@@ -1450,7 +1448,6 @@ class OpenApiServices
 
         return $this->getGenericRequestBody();
     }
-
 
 
     /**
