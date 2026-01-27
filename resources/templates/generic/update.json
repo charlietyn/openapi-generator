@@ -1,6 +1,6 @@
 {
     "summary": "Update __VAR:entity_singular__",
-    "description": "Updates an existing __VAR:entity_singular__ with the provided data.\n\n## HTTP Methods\n\n| Method | Behavior |\n|--------|----------|\n| **PATCH** | Partial update - only provided fields are modified |\n| **PUT** | Full replacement - all fields should be provided |\n\n**Recommendation:** Use PATCH for most updates.\n\n## Validation\n\n__VAR:validation_description__\n\n## Response\n\nReturns the complete updated resource with new `updated_at` timestamp.",
+    "description": "Updates an existing __VAR:entity_singular__ record.\n\n---\n\n## Model Information\n\n### Updatable Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## HTTP Methods\n\n| Method | Behavior |\n|--------|----------|\n| **PATCH** | Partial update - only provided fields are modified |\n| **PUT** | Full replacement - all fields should be provided |\n\n**Recommendation:** Use `PATCH` for most update operations.\n\n---\n\n## Validation Rules\n__VAR:validation_description__\n\n---\n\n## Response\n\nReturns the complete updated resource with new `updated_at` timestamp.",
     "tags": [
         "__VAR:module__"
     ],
@@ -13,13 +13,13 @@
             "schema": {
                 "type": "integer",
                 "minimum": 1,
-                "example": 1
+                "example": "__VAR:example_id__"
             }
         }
     ],
     "requestBody": {
         "required": true,
-        "description": "Fields to update. Include only fields you want to change (PATCH) or all fields (PUT).",
+        "description": "Fields to update",
         "content": {
             "application/json": {
                 "schema": "__JSON:request_schema__",
@@ -63,7 +63,7 @@
             }
         },
         "422": {
-            "description": "Validation error. Returns field-specific error messages.",
+            "description": "Validation error.",
             "content": {
                 "application/json": {
                     "schema": {
@@ -116,7 +116,7 @@
             }
         },
         "409": {
-            "description": "Conflict. Resource was modified by another user.",
+            "description": "Conflict - Resource modified by another user.",
             "content": {
                 "application/json": {
                     "schema": {

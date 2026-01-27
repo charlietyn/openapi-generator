@@ -1,6 +1,6 @@
 {
     "summary": "Get __VAR:entity_singular__",
-    "description": "Retrieves a single __VAR:entity_singular__ by its unique identifier.\n\n## Features\n\n- Returns complete resource with all fields\n- Supports eager loading of relations\n- Includes timestamps (created_at, updated_at)\n\n## Loading Relations\n\nUse the `relations` query parameter to eager load related data:\n\n```\nGET /api/__VAR:entity_url__/{id}?relations=user,category\n```\n\nOr send as JSON body:\n```json\n{\"relations\": [\"user\", \"category.parent\"]}\n```\n\n- Use dot notation for nested relations: `user.roles.permissions`\n- Use `[\"all\"]` to load all available relations",
+    "description": "Retrieves a single __VAR:entity_singular__ by its unique identifier with optional relation loading.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Loading Relations\n\nUse the `relations` parameter to eager load related entities:\n\n**Query parameter:**\n```\nGET /api/__VAR:entity_url__/__VAR:example_id__?relations=user,category\n```\n\n**Request body:**\n```json\n{\n  \"relations\": [\"user\", \"category.parent\"]\n}\n```\n\n- Use dot notation for nested relations: `user.roles.permissions`\n- Use `[\"all\"]` to load all available relations",
     "tags": [
         "__VAR:module__"
     ],
@@ -13,20 +13,39 @@
             "schema": {
                 "type": "integer",
                 "minimum": 1,
-                "example": 1
+                "example": "__VAR:example_id__"
             }
         },
         {
             "name": "relations",
             "in": "query",
             "required": false,
-            "description": "Comma-separated list of relations to load",
+            "description": "Comma-separated list of relations to eager load",
             "schema": {
-                "type": "string",
-                "example": "user,category"
-            }
+                "type": "string"
+            },
+            "example": "user,category"
         }
     ],
+    "requestBody": {
+        "required": false,
+        "description": "Optional configuration for relation loading",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "relations": {
+                            "type": "array",
+                            "description": "Relations to eager load",
+                            "items": {"type": "string"},
+                            "example": "__JSON:relations_list__"
+                        }
+                    }
+                }
+            }
+        }
+    },
     "responses": {
         "200": {
             "description": "__VAR:entity_singular__ retrieved successfully.",
