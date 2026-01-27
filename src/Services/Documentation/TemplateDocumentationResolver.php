@@ -186,6 +186,7 @@ class TemplateDocumentationResolver
             'store' => 'create',
             'edit' => 'update',
             'destroy' => 'delete',
+            'update_multiple' => 'bulk_update',
         ];
 
         $templateName = $mapping[$action] ?? $action;

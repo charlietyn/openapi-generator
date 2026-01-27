@@ -1,0 +1,115 @@
+{
+    "summary": "Validate __VAR:entity_singular__ data",
+    "description": "Validates the provided data for a __VAR:entity_singular__ without persisting it to the database.\n\n---\n\n## Purpose\n\nThis endpoint allows you to **pre-validate** data before submitting it for creation or update. This is useful for:\n\n- **Form validation**: Validate user input in real-time before final submission\n- **Data verification**: Check if data meets all requirements without side effects\n- **Dry-run operations**: Test data integrity without modifying the database\n\n---\n\n## Model Information\n\n### Validatable Fields\n__VAR:fields_description__\n\n---\n\n## Validation Rules\n\nThe following validation rules are applied to the submitted data:\n\n__VAR:validation_description__\n\n---\n\n## Behavior\n\n| Aspect | Description |\n|--------|-------------|\n| **Side Effects** | None - no data is created, updated, or deleted |\n| **Database** | No database operations are performed |\n| **Response** | Returns validation status and any error messages |\n\n---\n\n## Usage Example\n\n```javascript\n// Validate data before creating a new record\nconst response = await fetch('/api/__VAR:entity_plural__/validate', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify(formData)\n});\n\nif (response.ok) {\n    // Data is valid, proceed with creation\n    await createRecord(formData);\n} else {\n    // Show validation errors to user\n    const errors = await response.json();\n    displayErrors(errors);\n}\n```",
+    "tags": [
+        "__VAR:module__"
+    ],
+    "requestBody": {
+        "required": true,
+        "description": "Data to validate for __VAR:entity_singular__",
+        "content": {
+            "application/json": {
+                "schema": "__JSON:request_schema__",
+                "example": "__JSON:request_example__"
+            }
+        }
+    },
+    "responses": {
+        "200": {
+            "description": "Validation passed successfully.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "valid": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "message": {
+                                "type": "string",
+                                "example": "Validation passed successfully"
+                            }
+                        }
+                    },
+                    "example": {
+                        "valid": true,
+                        "message": "Validation passed successfully"
+                    }
+                }
+            }
+        },
+        "422": {
+            "description": "Validation failed - one or more fields contain invalid data.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "valid": {
+                                "type": "boolean",
+                                "example": false
+                            },
+                            "message": {
+                                "type": "string",
+                                "example": "The given data was invalid."
+                            },
+                            "errors": {
+                                "type": "object",
+                                "description": "Object containing field names as keys and arrays of error messages as values",
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": {"type": "string"}
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "valid": false,
+                        "message": "The given data was invalid.",
+                        "errors": "__JSON:validation_errors_example__"
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Authentication required.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Unauthenticated."}
+                        }
+                    }
+                }
+            }
+        },
+        "403": {
+            "description": "Permission denied.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "This action is unauthorized."}
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal server error.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Server error occurred during validation."}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
