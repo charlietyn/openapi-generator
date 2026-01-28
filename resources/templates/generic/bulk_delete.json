@@ -1,0 +1,213 @@
+{
+    "summary": "Bulk delete __VAR:entity_plural__",
+    "description": "Deletes multiple __VAR:entity_singular__ records in a single request.\n\n---\n\n## Purpose\n\nThis endpoint allows you to **delete multiple records simultaneously**, which is more efficient than making individual delete requests. This is useful for:\n\n- **Batch cleanup**: Remove multiple records at once\n- **Performance optimization**: Reduce API calls when deleting many records\n- **Bulk operations**: Clear selected items from lists or tables\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Request Format\n\nTwo formats are supported:\n\n### Array Format (Simple)\n```json\n[101, 102, 103]\n```\n\n### Object Format\n```json\n{\n  \"ids\": [101, 102, 103]\n}\n```\n\n---\n\n## Response Format\n\n**Success:**\n```json\n{\n  \"success\": true\n}\n```\n\n---\n\n## Deletion Types\n\n| Type | Description |\n|------|-------------|\n| **Soft Delete** | Records marked as deleted (`deleted_at` timestamp), can be restored |\n| **Hard Delete** | Permanently removed from database, cannot be restored |\n\nThe behavior depends on whether the model uses Laravel's `SoftDeletes` trait.\n\n---\n\n## Notes\n\n- All deletions are processed in a single transaction\n- If any deletion fails due to constraints, the entire operation may be rolled back\n- Non-existent IDs are silently ignored (idempotent behavior)",
+    "tags": [
+        "__VAR:module__"
+    ],
+    "requestBody": {
+        "required": true,
+        "description": "Array of IDs to delete, either as direct array or wrapped in an object",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "oneOf": [
+                        {
+                            "type": "array",
+                            "description": "Direct array of IDs",
+                            "items": {
+                                "type": "integer"
+                            },
+                            "example": [101, 102, 103]
+                        },
+                        {
+                            "type": "object",
+                            "description": "Object with ids array",
+                            "properties": {
+                                "ids": {
+                                    "type": "array",
+                                    "description": "Array of IDs to delete",
+                                    "items": {
+                                        "type": "integer"
+                                    }
+                                }
+                            },
+                            "required": ["ids"]
+                        }
+                    ]
+                },
+                "examples": {
+                    "array_format": {
+                        "summary": "Array format",
+                        "value": [101, 102, 103]
+                    },
+                    "object_format": {
+                        "summary": "Object format",
+                        "value": {
+                            "ids": [101, 102, 103]
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "responses": {
+        "200": {
+            "description": "__VAR:entity_plural__ deleted successfully.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {
+                                "type": "boolean",
+                                "example": true
+                            }
+                        }
+                    },
+                    "example": {
+                        "success": true
+                    }
+                }
+            }
+        },
+        "207": {
+            "description": "Partial success - some records deleted, others failed.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {
+                                "type": "boolean",
+                                "example": false
+                            },
+                            "deleted": {
+                                "type": "array",
+                                "description": "IDs successfully deleted",
+                                "items": {"type": "integer"},
+                                "example": [101, 102]
+                            },
+                            "failed": {
+                                "type": "array",
+                                "description": "IDs that failed to delete",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "integer"},
+                                        "reason": {"type": "string"}
+                                    }
+                                },
+                                "example": [
+                                    {"id": 103, "reason": "Has dependent records"}
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "400": {
+            "description": "Invalid request format.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Invalid request format. Expected array of IDs or object with 'ids' key."}
+                        }
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Authentication required.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Unauthenticated."}
+                        }
+                    }
+                }
+            }
+        },
+        "403": {
+            "description": "Permission denied.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Forbidden: __VAR:entity_plural__.delete"}
+                        }
+                    }
+                }
+            }
+        },
+        "409": {
+            "description": "Cannot delete due to existing dependencies.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "Cannot delete some __VAR:entity_plural__ because they have related items."
+                            },
+                            "blocked_ids": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "example": [102, 103]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "422": {
+            "description": "Validation error - invalid IDs provided.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "example": "The given data was invalid."
+                            },
+                            "errors": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": {"type": "string"}
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "message": "The given data was invalid.",
+                        "errors": {
+                            "ids.0": ["The ids.0 must be an integer."],
+                            "ids.2": ["The selected ids.2 is invalid."]
+                        }
+                    }
+                }
+            }
+        },
+        "500": {
+            "description": "Internal server error - transaction rolled back.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Error deleting __VAR:entity_plural__. All changes have been rolled back."}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
