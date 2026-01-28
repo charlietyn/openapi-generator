@@ -442,7 +442,7 @@ class InsomniaWorkspaceGenerator
 
             case 'local':
                 return [
-                    'base_url' => PlaceholderHelper::replace('http://localhost/' . $title),
+                    'base_url' => PlaceholderHelper::replace('http://localhost/' . strtolower($title).'/public'),
                     'token' => $tokenTemplate,
                     'api_key' => '',
                 ];
