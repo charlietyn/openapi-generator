@@ -40,7 +40,7 @@ return [
             'description' => 'Artisan server',
         ],
         [
-            'url' => 'https://localhost/${{projectName}}',  // ← Placeholder
+            'url' => 'https://localhost/${{projectName}}/public',  // ← Placeholder
             'description' => 'Local Server',
         ],
         [
