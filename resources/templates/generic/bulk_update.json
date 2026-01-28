@@ -1,20 +1,52 @@
 {
     "summary": "Bulk update __VAR:entity_plural__",
-    "description": "Updates multiple __VAR:entity_singular__ records in a single request.\n\n---\n\n## Purpose\n\nThis endpoint allows you to **update multiple records simultaneously**, which is more efficient than making individual update requests. This is useful for:\n\n- **Batch operations**: Update multiple records with different values in one request\n- **Performance optimization**: Reduce API calls when updating many records\n- **Atomic operations**: All updates succeed or fail together (depending on implementation)\n\n---\n\n## Model Information\n\n### Updatable Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Request Format\n\nThe request body must contain an array of objects, where each object includes:\n\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| `id` | integer | **Yes** | The unique identifier of the record to update |\n| `...fields` | mixed | No | Any updatable field from the model |\n\n### Example Structure\n\n```json\n[\n    {\n        \"id\": 1,\n        \"field1\": \"new_value\",\n        \"field2\": \"another_value\"\n    },\n    {\n        \"id\": 2,\n        \"field1\": \"different_value\"\n    }\n]\n```\n\n---\n\n## Validation Rules\n\nEach item in the array must comply with the following validation rules:\n\n__VAR:validation_description__\n\n---\n\n## Behavior\n\n| Aspect | Description |\n|--------|-------------|\n| **Transaction** | All updates are wrapped in a database transaction |\n| **Atomicity** | If one update fails, all changes are rolled back |\n| **Response** | Returns all updated records or detailed error information |\n| **Partial Updates** | Only provided fields are updated (PATCH behavior) |\n\n---\n\n## Usage Example\n\n```javascript\n// Update multiple records at once\nconst response = await fetch('/api/__VAR:entity_plural__/bulk_update', {\n    method: 'PATCH',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify([\n        { id: 1, status: 'active', priority: 'high' },\n        { id: 2, status: 'inactive' },\n        { id: 3, name: 'Updated Name', status: 'pending' }\n    ])\n});\n\nif (response.ok) {\n    const { data } = await response.json();\n    console.log(`Updated ${data.length} records successfully`);\n}\n```",
+    "description": "Updates multiple __VAR:entity_singular__ records in a single request.\n\n---\n\n## Purpose\n\nThis endpoint allows you to **update multiple records simultaneously**, which is more efficient than making individual update requests. This is useful for:\n\n- **Batch operations**: Update multiple records with different values in one request\n- **Performance optimization**: Reduce API calls when updating many records\n- **Atomic operations**: All updates succeed or fail together (depending on implementation)\n\n---\n\n## Model Information\n\n### Updatable Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Request Format\n\nThe request body must contain an object with the model key (lowercase plural) containing an array of objects:\n\n```json\n{\n  \"__VAR:entity_url__\": [\n    {\n      \"id\": 1,\n      \"status\": \"shipped\"\n    },\n    {\n      \"id\": 2,\n      \"status\": \"shipped\"\n    },\n    {\n      \"id\": 3,\n      \"status\": \"delivered\"\n    }\n  ]\n}\n```\n\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| `id` | integer | **Yes** | The unique identifier of the record to update |\n| `...fields` | mixed | No | Any updatable field from the model |\n\n---\n\n## Response Format\n\n**Success:**\n```json\n{\n  \"success\": true,\n  \"models\": [\n    {\n      \"success\": true,\n      \"model\": {...}\n    },\n    {\n      \"success\": true,\n      \"model\": {...}\n    }\n  ]\n}\n```\n\n**Partial Failure:**\n```json\n{\n  \"success\": false,\n  \"models\": [\n    {\"success\": true, \"model\": {...}},\n    {\"success\": false, \"errors\": {\"field\": [\"Error message\"]}}\n  ]\n}\n```\n\n---\n\n## Validation Rules\n\nEach item in the array must comply with the following validation rules:\n\n__VAR:validation_description__\n\n---\n\n## Behavior\n\n| Aspect | Description |\n|--------|-------------|\n| **Transaction** | All updates are wrapped in a database transaction |\n| **Atomicity** | If one update fails, all changes are rolled back |\n| **Response** | Returns all updated records or detailed error information |\n| **Partial Updates** | Only provided fields are updated (PATCH behavior) |",
     "tags": [
         "__VAR:module__"
     ],
     "requestBody": {
         "required": true,
-        "description": "Array of __VAR:entity_singular__ objects to update. Each object must include the `id` field.",
+        "description": "Object containing the model key with array of __VAR:entity_singular__ objects to update. Each object must include the `id` field.",
         "content": {
             "application/json": {
                 "schema": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": "__JSON:request_schema__"
+                    "type": "object",
+                    "properties": {
+                        "__VAR:entity_url__": {
+                            "type": "array",
+                            "minItems": 1,
+                            "description": "Array of __VAR:entity_singular__ objects to update",
+                            "items": {
+                                "type": "object",
+                                "required": ["id"],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "description": "Unique identifier of the record to update"
+                                    }
+                                },
+                                "additionalProperties": true
+                            }
+                        }
+                    },
+                    "required": ["__VAR:entity_url__"]
                 },
-                "example": "__JSON:request_example__"
+                "example": {
+                    "__VAR:entity_url__": [
+                        {
+                            "id": 101,
+                            "status": "shipped"
+                        },
+                        {
+                            "id": 102,
+                            "status": "shipped"
+                        },
+                        {
+                            "id": 103,
+                            "status": "delivered"
+                        }
+                    ]
+                }
             }
         }
     },
@@ -26,25 +58,34 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "data": {
+                            "success": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "models": {
                                 "type": "array",
-                                "items": "__JSON:model_schema__"
-                            },
-                            "message": {
-                                "type": "string",
-                                "example": "__VAR:entity_plural__ updated successfully"
-                            },
-                            "updated_count": {
-                                "type": "integer",
-                                "description": "Number of records successfully updated",
-                                "example": 3
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {"type": "boolean", "example": true},
+                                        "model": "__JSON:model_schema__"
+                                    }
+                                }
                             }
                         }
                     },
                     "example": {
-                        "data": "__JSON:response_example__",
-                        "message": "__VAR:entity_plural__ updated successfully",
-                        "updated_count": 3
+                        "success": true,
+                        "models": [
+                            {
+                                "success": true,
+                                "model": "__JSON:response_example__"
+                            },
+                            {
+                                "success": true,
+                                "model": "__JSON:response_example__"
+                            }
+                        ]
                     }
                 }
             }
@@ -56,22 +97,18 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {
-                                "type": "string",
-                                "example": "Some __VAR:entity_plural__ could not be updated."
+                            "success": {
+                                "type": "boolean",
+                                "example": false
                             },
-                            "updated": {
+                            "models": {
                                 "type": "array",
-                                "description": "Successfully updated records",
-                                "items": "__JSON:model_schema__"
-                            },
-                            "failed": {
-                                "type": "array",
-                                "description": "Records that failed to update",
+                                "description": "Results for each item",
                                 "items": {
                                     "type": "object",
                                     "properties": {
-                                        "id": {"type": "integer"},
+                                        "success": {"type": "boolean"},
+                                        "model": {"type": "object"},
                                         "errors": {
                                             "type": "object",
                                             "additionalProperties": {
@@ -81,30 +118,23 @@
                                         }
                                     }
                                 }
-                            },
-                            "updated_count": {
-                                "type": "integer",
-                                "example": 2
-                            },
-                            "failed_count": {
-                                "type": "integer",
-                                "example": 1
                             }
                         }
                     },
                     "example": {
-                        "message": "Some __VAR:entity_plural__ could not be updated.",
-                        "updated": [],
-                        "failed": [
+                        "success": false,
+                        "models": [
                             {
-                                "id": 999,
+                                "success": true,
+                                "model": "__JSON:response_example__"
+                            },
+                            {
+                                "success": false,
                                 "errors": {
                                     "id": ["The selected id is invalid."]
                                 }
                             }
-                        ],
-                        "updated_count": 2,
-                        "failed_count": 1
+                        ]
                     }
                 }
             }
@@ -137,9 +167,9 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {
-                                "type": "string",
-                                "example": "The given data was invalid."
+                            "success": {
+                                "type": "boolean",
+                                "example": false
                             },
                             "errors": {
                                 "type": "object",
@@ -152,7 +182,7 @@
                         }
                     },
                     "example": {
-                        "message": "The given data was invalid.",
+                        "success": false,
                         "errors": {
                             "0.id": ["The id field is required."],
                             "1.email": ["The email must be a valid email address."]
@@ -181,7 +211,7 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "This action is unauthorized."}
+                            "message": {"type": "string", "example": "Forbidden: __VAR:entity_plural__.update"}
                         }
                     }
                 }

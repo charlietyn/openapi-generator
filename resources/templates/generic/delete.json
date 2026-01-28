@@ -1,6 +1,6 @@
 {
     "summary": "Delete __VAR:entity_singular__",
-    "description": "Deletes a __VAR:entity_singular__ record from the database.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Deletion Types\n\n| Type | Description |\n|------|-------------|\n| **Soft Delete** | Record marked as deleted (`deleted_at` timestamp), can be restored |\n| **Hard Delete** | Permanently removed from database, cannot be restored |\n\nThe behavior depends on whether the model uses Laravel's `SoftDeletes` trait.\n\n---\n\n## Force Delete\n\nTo permanently delete a soft-deleted resource:\n```\nDELETE /api/__VAR:entity_url__/__VAR:example_id__?force=true\n```\n\n---\n\n## Notes\n\n- DELETE is idempotent: deleting an already-deleted resource returns 404 (treated as success)\n- Deletion may fail if the resource has related items (foreign key constraints)",
+    "description": "Deletes a __VAR:entity_singular__ record from the database.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Deletion Types\n\n| Type | Description |\n|------|-------------|\n| **Soft Delete** | Record marked as deleted (`deleted_at` timestamp), can be restored |\n| **Hard Delete** | Permanently removed from database, cannot be restored |\n\nThe behavior depends on whether the model uses Laravel's `SoftDeletes` trait.\n\n---\n\n## Force Delete\n\nTo permanently delete a soft-deleted resource:\n```\nDELETE /api/__VAR:entity_url__/__VAR:example_id__?force=true\n```\n\n---\n\n## Response Format\n\n**Success:**\n```json\n{\n  \"success\": true,\n  \"model\": {\n    \"id\": 101,\n    \"status\": \"deleted\",\n    ...\n  }\n}\n```\n\n---\n\n## Notes\n\n- DELETE is idempotent: deleting an already-deleted resource returns 404 (treated as success)\n- Deletion may fail if the resource has related items (foreign key constraints)",
     "tags": [
         "__VAR:module__"
     ],
@@ -36,22 +36,26 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {
-                                "type": "string",
-                                "example": "__VAR:entity_singular__ deleted successfully"
+                            "success": {
+                                "type": "boolean",
+                                "example": true
                             },
-                            "data": {
+                            "model": {
                                 "type": "object",
                                 "nullable": true,
-                                "description": "Optional: deleted resource data"
+                                "description": "The deleted resource data"
                             }
                         }
+                    },
+                    "example": {
+                        "success": true,
+                        "model": "__JSON:response_example__"
                     }
                 }
             }
         },
         "204": {
-            "description": "__VAR:entity_singular__ deleted successfully (no content). Recommended REST response."
+            "description": "__VAR:entity_singular__ deleted successfully (no content). Alternative REST response."
         },
         "404": {
             "description": "__VAR:entity_singular__ not found.",
@@ -60,7 +64,7 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "__VAR:entity_singular__ not found."}
+                            "message": {"type": "string", "example": "No query results for model [App\\Models\\__VAR:entity_singular__] __VAR:example_id__"}
                         }
                     }
                 }
@@ -86,7 +90,7 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "This action is unauthorized."}
+                            "message": {"type": "string", "example": "Forbidden: __VAR:entity_plural__.delete"}
                         }
                     }
                 }

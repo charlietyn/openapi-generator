@@ -1,6 +1,6 @@
 {
     "summary": "Update __VAR:entity_singular__",
-    "description": "Updates an existing __VAR:entity_singular__ record.\n\n---\n\n## Model Information\n\n### Updatable Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## HTTP Methods\n\n| Method | Behavior |\n|--------|----------|\n| **PATCH** | Partial update - only provided fields are modified |\n| **PUT** | Full replacement - all fields should be provided |\n\n**Recommendation:** Use `PATCH` for most update operations.\n\n---\n\n## Validation Rules\n__VAR:validation_description__\n\n---\n\n## Response\n\nReturns the complete updated resource with new `updated_at` timestamp.",
+    "description": "Updates an existing __VAR:entity_singular__ record.\n\n---\n\n## Model Information\n\n### Updatable Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## HTTP Methods\n\n| Method | Behavior |\n|--------|----------|\n| **PATCH** | Partial update - only provided fields are modified |\n| **PUT** | Full replacement - all fields should be provided |\n\n**Recommendation:** Use `PATCH` for most update operations.\n\n---\n\n## Request Example\n\n```json\n{\n  \"status\": \"processing\",\n  \"notes\": \"Payment confirmed\"\n}\n```\n\n---\n\n## Response Format\n\n**Success:**\n```json\n{\n  \"success\": true,\n  \"model\": {\n    \"id\": 101,\n    \"status\": \"processing\",\n    \"notes\": \"Payment confirmed\",\n    \"updated_at\": \"2024-01-20T14:15:00.000000Z\"\n  }\n}\n```\n\n---\n\n## Validation Rules\n__VAR:validation_description__\n\n---\n\n## Response\n\nReturns the complete updated resource with new `updated_at` timestamp.",
     "tags": [
         "__VAR:module__"
     ],
@@ -35,16 +35,16 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "data": "__JSON:model_schema__",
-                            "message": {
-                                "type": "string",
-                                "example": "__VAR:entity_singular__ updated successfully"
-                            }
+                            "success": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "model": "__JSON:model_schema__"
                         }
                     },
                     "example": {
-                        "data": "__JSON:response_example__",
-                        "message": "__VAR:entity_singular__ updated successfully"
+                        "success": true,
+                        "model": "__JSON:response_example__"
                     }
                 }
             }
@@ -56,7 +56,7 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "__VAR:entity_singular__ not found."}
+                            "message": {"type": "string", "example": "No query results for model [App\\Models\\__VAR:entity_singular__] __VAR:example_id__"}
                         }
                     }
                 }
@@ -69,22 +69,30 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {
-                                "type": "string",
-                                "example": "The given data was invalid."
+                            "success": {
+                                "type": "boolean",
+                                "example": false
                             },
                             "errors": {
-                                "type": "object",
-                                "additionalProperties": {
-                                    "type": "array",
-                                    "items": {"type": "string"}
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
                                 }
                             }
                         }
                     },
                     "example": {
-                        "message": "The given data was invalid.",
-                        "errors": "__JSON:validation_errors_example__"
+                        "success": false,
+                        "errors": [
+                            {
+                                "field_name": ["The field_name must be a valid value."],
+                                "model": "App\\Models\\__VAR:entity_singular__"
+                            }
+                        ]
                     }
                 }
             }
@@ -109,7 +117,7 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "This action is unauthorized."}
+                            "message": {"type": "string", "example": "Forbidden: __VAR:entity_plural__.update"}
                         }
                     }
                 }

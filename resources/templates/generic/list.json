@@ -1,6 +1,6 @@
 {
     "summary": "List __VAR:entity_plural__",
-    "description": "Retrieves a paginated list of __VAR:entity_plural__ with support for filtering, sorting, and eager loading of relations.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Query Parameters\n\n### Pagination\n```json\n{\n  \"pagination\": {\n    \"page\": 1,\n    \"pagesize\": 15\n  }\n}\n```\n\n### Loading Relations\nUse dot notation for nested relations.\n```json\n{\n  \"relations\": [\"user\", \"category\", \"user.roles\"]\n}\n```\n\n### Filtering by Attributes\n```json\n{\n  \"attr\": {\n    \"status\": \"active\",\n    \"type\": [\"A\", \"B\"]\n  }\n}\n```\n\n### Advanced Filtering (Operators)\nFormat: `operator|field|value|case_sensitive`\n```json\n{\n  \"oper\": [\n    {\n      \"and\": [\n        {\"0\": \"like|name|%search%|0\"},\n        {\"1\": \">|created_at|2024-01-01|0\"}\n      ]\n    }\n  ]\n}\n```\n**Operators:** `=`, `!=`, `<`, `>`, `<=`, `>=`,`between`, `like`\n\n### Sorting\n```json\n{\n  \"orderby\": [\n    {\"created_at\": \"desc\"},\n    {\"name\": \"asc\"}\n  ]\n}\n```\n\n### Field Selection\n```json\n{\n  \"select\": [\"id\", \"name\", \"status\"]\n}\n```",
+    "description": "Retrieves a paginated list of __VAR:entity_plural__ with support for advanced filtering, nested queries, sorting, field selection, and eager loading of relations.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Query Parameters\n\n### Pagination\n\n**Standard Pagination:**\n```json\n{\n  \"pagination\": {\n    \"page\": 1,\n    \"pageSize\": 20\n  }\n}\n```\n\n**Cursor Pagination (Infinite Scroll):**\n```json\n{\n  \"pagination\": {\n    \"infinity\": true,\n    \"pageSize\": 20,\n    \"cursor\": \"eyJpZCI6MjAsIl9wb2ludHNUb05leHRJdGVtcyI6dHJ1ZX0\"\n  }\n}\n```\n\n### Loading Relations\n\nUse dot notation for nested relations. Supports field selection with colon syntax.\n```json\n{\n  \"relations\": [\"user:id,name,email\", \"category\", \"user.roles:id,name\"]\n}\n```\n\n### Field Selection\n```json\n{\n  \"select\": [\"id\", \"name\", \"status\", \"created_at\"]\n}\n```\n\n---\n\n## Filtering\n\n### Simple Filters (Array Syntax)\nFormat: `\"field|operator|value\"`\n```json\n{\n  \"oper\": [\"status|=|active\", \"total|>=|100\"]\n}\n```\n\n### Complex Filters (Object Syntax)\n```json\n{\n  \"oper\": {\n    \"and\": [\n      \"total|>|50\"\n    ],\n    \"or\": [\n      \"status|=|pending\",\n      \"status|=|processing\"\n    ]\n  }\n}\n```\n\n### Nested Queries (whereHas)\nFilter by related model conditions:\n```json\n{\n  \"oper\": {\n    \"and\": [\"status|=|active\"],\n    \"user\": {\n      \"and\": [\n        \"email_verified_at|not null\",\n        \"active|=|1\"\n      ]\n    }\n  }\n}\n```\n\n**Multi-level nesting:**\n```json\n{\n  \"oper\": {\n    \"user\": {\n      \"and\": [\"active|=|1\"],\n      \"roles\": {\n        \"and\": [\"name|=|admin\"]\n      }\n    }\n  }\n}\n```\n\n**Dot notation shorthand:**\n```json\n{\n  \"oper\": {\n    \"user.roles\": {\n      \"and\": [\"name|=|admin\"]\n    }\n  }\n}\n```\n\n---\n\n## Operators Reference\n\n### Comparison Operators\n| Operator | Description | Example |\n|----------|-------------|--------|\n| `=` | Equals | `\"status\\|=\\|active\"` |\n| `!=` | Not equals | `\"status\\|!=\\|deleted\"` |\n| `<` | Less than | `\"price\\|<\\|100\"` |\n| `>` | Greater than | `\"price\\|>\\|50\"` |\n| `<=` | Less or equal | `\"age\\|<=\\|18\"` |\n| `>=` | Greater or equal | `\"rating\\|>=\\|4.5\"` |\n\n### String Operators\n| Operator | Description | Example |\n|----------|-------------|--------|\n| `like` | Contains (case-sensitive) | `\"name\\|like\\|%laptop%\"` |\n| `not like` | Not contains | `\"email\\|not like\\|%temp%\"` |\n| `ilike` | Contains (case-insensitive, PostgreSQL) | `\"name\\|ilike\\|%ABC%\"` |\n| `not ilike` | Not contains (case-insensitive) | `\"desc\\|not ilike\\|%test%\"` |\n| `ilikeu` | Unaccented search (PostgreSQL) | `\"name\\|ilikeu\\|%cafe%\"` |\n\n### List Operators\n| Operator | Description | Example |\n|----------|-------------|--------|\n| `in` | In list | `\"status\\|in\\|pending,active,processing\"` |\n| `not in` | Not in list | `\"type\\|not in\\|deleted,archived\"` |\n\n### Range Operators\n| Operator | Description | Example |\n|----------|-------------|--------|\n| `between` | Between (inclusive) | `\"price\\|between\\|10,100\"` |\n| `not between` | Not between | `\"discount\\|not between\\|50,100\"` |\n\n### Null Operators\n| Operator | Description | Example |\n|----------|-------------|--------|\n| `null` | IS NULL | `\"deleted_at\\|null\"` |\n| `not null` | IS NOT NULL | `\"verified_at\\|not null\"` |\n\n### Date Operators\n| Operator | Description | Example |\n|----------|-------------|--------|\n| `date` | Date equals | `\"created_at\\|date\\|2024-01-20\"` |\n| `not date` | Date not equals | `\"updated_at\\|not date\\|2024-01-19\"` |\n\n### Advanced Operators\n| Operator | Description | Example |\n|----------|-------------|--------|\n| `exists` | Exists subquery | `\"comments\\|exists\"` |\n| `not exists` | Not exists | `\"comments\\|not exists\"` |\n| `regexp` | Regular expression | `\"code\\|regexp\\|^[A-Z]{3}\"` |\n| `not regexp` | Not regexp | `\"code\\|not regexp\\|^TEST\"` |\n\n---\n\n## Sorting\n```json\n{\n  \"orderby\": [\n    {\"created_at\": \"desc\"},\n    {\"name\": \"asc\"}\n  ]\n}\n```\n\n---\n\n## Hierarchical Listing\n\nFor self-referencing models (categories, roles, etc.):\n```json\n{\n  \"hierarchy\": true\n}\n```\n\n**With options:**\n```json\n{\n  \"hierarchy\": {\n    \"children_key\": \"children\",\n    \"max_depth\": 3,\n    \"filter_mode\": \"with_descendants\",\n    \"include_empty_children\": true\n  }\n}\n```\n\n**Filter modes:** `match_only`, `with_ancestors`, `with_descendants`, `full_branch`, `root_filter`\n\n---\n\n## Soft Delete\n\n| Value | Description |\n|-------|-------------|\n| `soft_delete=true` | Include soft deleted records |\n| `soft_delete=only` | Only soft deleted records |\n\n---\n\n## Apply Filters to Relations\n\nUse `_nested=true` to apply filters to eager loaded relations.",
     "tags": [
         "__VAR:module__"
     ],
@@ -9,7 +9,7 @@
             "name": "page",
             "in": "query",
             "required": false,
-            "description": "Page number for pagination",
+            "description": "Page number for standard pagination",
             "schema": {
                 "type": "integer",
                 "minimum": 1,
@@ -18,7 +18,7 @@
             }
         },
         {
-            "name": "pagesize",
+            "name": "pageSize",
             "in": "query",
             "required": false,
             "description": "Number of items per page",
@@ -27,63 +27,248 @@
                 "minimum": 1,
                 "maximum": 100,
                 "default": 15,
-                "example": 15
+                "example": 20
             }
         },
         {
             "name": "relations",
             "in": "query",
             "required": false,
-            "description": "Comma-separated list of relations to load",
+            "description": "JSON array of relations to load. Supports field selection: `[\"user:id,name\",\"category\"]`",
             "schema": {
                 "type": "string"
             },
-            "example": "user,category"
+            "example": "[\"user:id,name\",\"category\"]"
+        },
+        {
+            "name": "select",
+            "in": "query",
+            "required": false,
+            "description": "JSON array of fields to return",
+            "schema": {
+                "type": "string"
+            },
+            "example": "[\"id\",\"name\",\"status\"]"
+        },
+        {
+            "name": "oper",
+            "in": "query",
+            "required": false,
+            "description": "JSON filter conditions. Simple: `[\"status|=|active\"]` or complex with nested queries",
+            "schema": {
+                "type": "string"
+            },
+            "example": "[\"status|=|active\",\"total|>=|100\"]"
+        },
+        {
+            "name": "soft_delete",
+            "in": "query",
+            "required": false,
+            "description": "Include soft deleted records: `true` (include) or `only` (exclusive)",
+            "schema": {
+                "type": "string",
+                "enum": ["true", "only"]
+            }
+        },
+        {
+            "name": "hierarchy",
+            "in": "query",
+            "required": false,
+            "description": "Enable hierarchical tree structure for self-referencing models",
+            "schema": {
+                "type": "string"
+            },
+            "example": "true"
+        },
+        {
+            "name": "_nested",
+            "in": "query",
+            "required": false,
+            "description": "Apply filters to eager loaded relations",
+            "schema": {
+                "type": "boolean",
+                "default": false
+            }
         }
     ],
     "requestBody": {
         "required": false,
-        "description": "Advanced query configuration (for PUT/POST requests)",
+        "description": "Advanced query configuration (for POST requests to `/_search` endpoint)",
         "content": {
             "application/json": {
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "relations": {
-                            "type": "array",
-                            "description": "Relations to eager load",
-                            "items": {"type": "string"},
-                            "example": "__JSON:relations_list__"
-                        },
-                        "pagination": {
-                            "type": "object",
-                            "properties": {
-                                "page": {"type": "integer", "example": 1},
-                                "pagesize": {"type": "integer", "example": 15}
-                            }
-                        },
                         "select": {
                             "type": "array",
-                            "description": "Fields to return",
+                            "description": "Fields to return from main model",
                             "items": {"type": "string"},
                             "example": "__JSON:fields_list__"
                         },
-                        "attr": {
-                            "type": "object",
-                            "description": "Filter by exact attribute values",
-                            "example": "__JSON:attr_examples__"
+                        "relations": {
+                            "type": "array",
+                            "description": "Relations to eager load. Supports field selection with colon syntax: `\"user:id,name\"`",
+                            "items": {"type": "string"},
+                            "example": "__JSON:relations_list__"
                         },
                         "oper": {
-                            "type": "array",
-                            "description": "Advanced operator-based filters",
-                            "items": {"type": "object"},
-                            "example": "__JSON:oper_examples__"
+                            "oneOf": [
+                                {
+                                    "type": "array",
+                                    "description": "Simple filter array",
+                                    "items": {"type": "string"},
+                                    "example": ["status|=|active", "total|>=|100"]
+                                },
+                                {
+                                    "type": "object",
+                                    "description": "Complex filter with AND/OR logic and nested queries",
+                                    "properties": {
+                                        "and": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                            "description": "Conditions combined with AND"
+                                        },
+                                        "or": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                            "description": "Conditions combined with OR"
+                                        }
+                                    },
+                                    "additionalProperties": {
+                                        "type": "object",
+                                        "description": "Nested query for relation (whereHas)"
+                                    }
+                                }
+                            ]
                         },
                         "orderby": {
                             "type": "array",
                             "description": "Sorting configuration",
-                            "items": {"type": "object"},
-                            "example": "__JSON:orderby_examples__"
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string",
+                                    "enum": ["asc", "desc"]
+                                }
+                            },
+                            "example": [{"created_at": "desc"}, {"name": "asc"}]
+                        },
+                        "pagination": {
+                            "type": "object",
+                            "description": "Pagination configuration",
+                            "properties": {
+                                "page": {
+                                    "type": "integer",
+                                    "description": "Page number (standard pagination)",
+                                    "example": 1
+                                },
+                                "pageSize": {
+                                    "type": "integer",
+                                    "description": "Items per page",
+                                    "example": 20
+                                },
+                                "infinity": {
+                                    "type": "boolean",
+                                    "description": "Enable cursor-based pagination for infinite scroll",
+                                    "example": false
+                                },
+                                "cursor": {
+                                    "type": "string",
+                                    "description": "Cursor token for next page (cursor pagination)",
+                                    "example": "eyJpZCI6MjAsIl9wb2ludHNUb05leHRJdGVtcyI6dHJ1ZX0"
+                                }
+                            }
+                        },
+                        "hierarchy": {
+                            "oneOf": [
+                                {
+                                    "type": "boolean",
+                                    "description": "Enable hierarchy with defaults",
+                                    "example": true
+                                },
+                                {
+                                    "type": "object",
+                                    "description": "Hierarchy configuration",
+                                    "properties": {
+                                        "children_key": {
+                                            "type": "string",
+                                            "description": "Property name for nested children",
+                                            "default": "children",
+                                            "example": "children"
+                                        },
+                                        "max_depth": {
+                                            "type": "integer",
+                                            "description": "Maximum tree depth (null = unlimited)",
+                                            "nullable": true,
+                                            "example": 3
+                                        },
+                                        "filter_mode": {
+                                            "type": "string",
+                                            "description": "Filter behavior mode",
+                                            "enum": ["match_only", "with_ancestors", "with_descendants", "full_branch", "root_filter"],
+                                            "default": "match_only"
+                                        },
+                                        "include_empty_children": {
+                                            "type": "boolean",
+                                            "description": "Include children: [] on leaf nodes",
+                                            "default": true
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "soft_delete": {
+                            "type": "string",
+                            "description": "Soft delete filter: `true` (include deleted) or `only` (only deleted)",
+                            "enum": ["true", "only"]
+                        },
+                        "_nested": {
+                            "type": "boolean",
+                            "description": "Apply filters to eager loaded relations",
+                            "default": false
+                        }
+                    }
+                },
+                "examples": {
+                    "simple_filter": {
+                        "summary": "Simple filtering",
+                        "value": {
+                            "select": ["id", "status", "total"],
+                            "oper": ["status|=|active", "total|>=|100"],
+                            "orderby": [{"created_at": "desc"}],
+                            "pagination": {"page": 1, "pageSize": 20}
+                        }
+                    },
+                    "nested_query": {
+                        "summary": "Nested query (whereHas)",
+                        "value": {
+                            "select": ["id", "status", "total"],
+                            "relations": ["user:id,name,email"],
+                            "oper": {
+                                "and": ["status|=|active"],
+                                "user": {
+                                    "and": ["email_verified_at|not null", "active|=|1"]
+                                }
+                            }
+                        }
+                    },
+                    "cursor_pagination": {
+                        "summary": "Infinite scroll pagination",
+                        "value": {
+                            "pagination": {
+                                "infinity": true,
+                                "pageSize": 20
+                            }
+                        }
+                    },
+                    "hierarchical": {
+                        "summary": "Hierarchical tree structure",
+                        "value": {
+                            "hierarchy": {
+                                "children_key": "children",
+                                "max_depth": 3,
+                                "filter_mode": "with_descendants"
+                            }
                         }
                     }
                 }
@@ -92,50 +277,86 @@
     },
     "responses": {
         "200": {
-            "description": "Paginated list of __VAR:entity_plural__ retrieved successfully.",
+            "description": "List of __VAR:entity_plural__ retrieved successfully.",
             "content": {
                 "application/json": {
                     "schema": {
-                        "type": "object",
-                        "properties": {
-                            "data": {
-                                "type": "array",
-                                "description": "Array of __VAR:entity_singular__ objects",
-                                "items": "__JSON:model_schema__"
-                            },
-                            "meta": {
+                        "oneOf": [
+                            {
                                 "type": "object",
+                                "description": "Standard paginated response",
                                 "properties": {
                                     "current_page": {"type": "integer", "example": 1},
+                                    "data": {
+                                        "type": "array",
+                                        "description": "Array of __VAR:entity_singular__ objects",
+                                        "items": "__JSON:model_schema__"
+                                    },
+                                    "first_page_url": {"type": "string", "format": "uri"},
                                     "from": {"type": "integer", "example": 1},
-                                    "to": {"type": "integer", "example": 15},
-                                    "per_page": {"type": "integer", "example": 15},
-                                    "total": {"type": "integer", "example": 100},
-                                    "last_page": {"type": "integer", "example": 7}
+                                    "last_page": {"type": "integer", "example": 10},
+                                    "last_page_url": {"type": "string", "format": "uri"},
+                                    "links": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "url": {"type": "string", "format": "uri", "nullable": true},
+                                                "label": {"type": "string"},
+                                                "active": {"type": "boolean"}
+                                            }
+                                        }
+                                    },
+                                    "next_page_url": {"type": "string", "format": "uri", "nullable": true},
+                                    "path": {"type": "string", "format": "uri"},
+                                    "per_page": {"type": "integer", "example": 20},
+                                    "prev_page_url": {"type": "string", "format": "uri", "nullable": true},
+                                    "to": {"type": "integer", "example": 20},
+                                    "total": {"type": "integer", "example": 200}
                                 }
                             },
-                            "links": {
+                            {
                                 "type": "object",
+                                "description": "Cursor paginated response (infinite scroll)",
                                 "properties": {
-                                    "first": {"type": "string", "format": "uri"},
-                                    "last": {"type": "string", "format": "uri"},
-                                    "prev": {"type": "string", "format": "uri", "nullable": true},
-                                    "next": {"type": "string", "format": "uri", "nullable": true}
+                                    "data": {
+                                        "type": "array",
+                                        "items": "__JSON:model_schema__"
+                                    },
+                                    "next_cursor": {
+                                        "type": "string",
+                                        "description": "Cursor for next page",
+                                        "example": "eyJpZCI6MjAsIl9wb2ludHNUb05leHRJdGVtcyI6dHJ1ZX0"
+                                    },
+                                    "has_more": {
+                                        "type": "boolean",
+                                        "description": "Whether more results exist"
+                                    }
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "description": "Simple list response (no pagination)",
+                                "properties": {
+                                    "data": {
+                                        "type": "array",
+                                        "items": "__JSON:model_schema__"
+                                    }
                                 }
                             }
-                        }
+                        ]
                     }
                 }
             }
         },
         "400": {
-            "description": "Invalid query parameters.",
+            "description": "Invalid query parameters or relation not allowed.",
             "content": {
                 "application/json": {
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "Invalid query parameters."}
+                            "message": {"type": "string", "example": "Relation 'invalidRelation' is not allowed. Allowed: user, items"}
                         }
                     }
                 }
@@ -161,7 +382,7 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "This action is unauthorized."}
+                            "message": {"type": "string", "example": "Forbidden: __VAR:entity_plural__.index"}
                         }
                     }
                 }

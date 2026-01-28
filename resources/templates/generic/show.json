@@ -1,6 +1,6 @@
 {
     "summary": "Get __VAR:entity_singular__",
-    "description": "Retrieves a single __VAR:entity_singular__ by its unique identifier with optional relation loading.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Loading Relations\n\nUse the `relations` parameter to eager load related entities:\n\n**Query parameter:**\n```\nGET /api/__VAR:entity_url__/__VAR:example_id__?relations=user,category\n```\n\n**Request body:**\n```json\n{\n  \"relations\": [\"user\", \"category.parent\"]\n}\n```\n\n- Use dot notation for nested relations: `user.roles.permissions`\n- Use `[\"all\"]` to load all available relations",
+    "description": "Retrieves a single __VAR:entity_singular__ by its unique identifier with optional relation loading and field selection.\n\n---\n\n## Model Information\n\n### Available Fields\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Loading Relations\n\nUse the `relations` parameter to eager load related entities with optional field selection:\n\n**Query parameter:**\n```\nGET /api/__VAR:entity_url__/__VAR:example_id__?relations=[\"user:id,name\",\"category\"]\n```\n\n**Request body:**\n```json\n{\n  \"relations\": [\"user:id,name,email\", \"category.parent:id,name\"]\n}\n```\n\n### Field Selection Syntax\n- Full relation: `\"user\"` - loads all fields\n- With field selection: `\"user:id,name,email\"` - loads only specified fields\n- Nested relations: `\"user.roles:id,name\"` - nested with field selection\n- Use `[\"all\"]` to load all available relations\n\n---\n\n## Hierarchical Data\n\nFor self-referencing models (categories, roles, etc.), use the `hierarchy` parameter:\n\n**Simple (with descendants):**\n```\nGET /api/__VAR:entity_url__/__VAR:example_id__?hierarchy=true\n```\n\n**With options:**\n```json\n{\n  \"hierarchy\": {\n    \"mode\": \"with_ancestors\",\n    \"max_depth\": 3,\n    \"children_key\": \"children\"\n  }\n}\n```\n\n### Hierarchy Modes for Show\n| Mode | Description |\n|------|-------------|\n| `node_only` | Only the requested node with `children: []` |\n| `with_descendants` | Node + all descendants (default) |\n| `with_ancestors` | Hierarchical chain from root to the node |\n| `full_branch` | Ancestors + node + complete descendants |",
     "tags": [
         "__VAR:module__"
     ],
@@ -20,16 +20,36 @@
             "name": "relations",
             "in": "query",
             "required": false,
-            "description": "Comma-separated list of relations to eager load",
+            "description": "JSON array of relations to eager load. Supports field selection: `[\"user:id,name\",\"category\"]`",
             "schema": {
                 "type": "string"
             },
-            "example": "user,category"
+            "example": "[\"user:id,name\",\"category\"]"
+        },
+        {
+            "name": "select",
+            "in": "query",
+            "required": false,
+            "description": "JSON array of fields to return from main model",
+            "schema": {
+                "type": "string"
+            },
+            "example": "[\"id\",\"name\",\"status\"]"
+        },
+        {
+            "name": "hierarchy",
+            "in": "query",
+            "required": false,
+            "description": "Enable hierarchical data for self-referencing models. Use `true` for defaults or JSON object for options.",
+            "schema": {
+                "type": "string"
+            },
+            "example": "true"
         }
     ],
     "requestBody": {
         "required": false,
-        "description": "Optional configuration for relation loading",
+        "description": "Optional configuration for relation loading, field selection, and hierarchy",
         "content": {
             "application/json": {
                 "schema": {
@@ -37,9 +57,64 @@
                     "properties": {
                         "relations": {
                             "type": "array",
-                            "description": "Relations to eager load",
+                            "description": "Relations to eager load with optional field selection",
                             "items": {"type": "string"},
-                            "example": "__JSON:relations_list__"
+                            "example": ["user:id,name,email", "category", "items.product:id,name"]
+                        },
+                        "select": {
+                            "type": "array",
+                            "description": "Fields to return from main model",
+                            "items": {"type": "string"},
+                            "example": "__JSON:fields_list__"
+                        },
+                        "hierarchy": {
+                            "oneOf": [
+                                {
+                                    "type": "boolean",
+                                    "description": "Enable hierarchy with defaults (with_descendants mode)",
+                                    "example": true
+                                },
+                                {
+                                    "type": "object",
+                                    "description": "Hierarchy configuration",
+                                    "properties": {
+                                        "mode": {
+                                            "type": "string",
+                                            "description": "Hierarchy mode for show",
+                                            "enum": ["node_only", "with_descendants", "with_ancestors", "full_branch"],
+                                            "default": "with_descendants"
+                                        },
+                                        "max_depth": {
+                                            "type": "integer",
+                                            "description": "Maximum tree depth (null = unlimited)",
+                                            "nullable": true,
+                                            "example": 3
+                                        },
+                                        "children_key": {
+                                            "type": "string",
+                                            "description": "Property name for nested children",
+                                            "default": "children"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "examples": {
+                    "with_relations": {
+                        "summary": "Load with relations and field selection",
+                        "value": {
+                            "relations": ["user:id,name,email", "items:id,product_name,quantity"]
+                        }
+                    },
+                    "with_hierarchy": {
+                        "summary": "Load with hierarchy (for self-referencing models)",
+                        "value": {
+                            "hierarchy": {
+                                "mode": "with_ancestors",
+                                "max_depth": 5
+                            }
                         }
                     }
                 }
@@ -52,13 +127,76 @@
             "content": {
                 "application/json": {
                     "schema": {
-                        "type": "object",
-                        "properties": {
-                            "data": "__JSON:model_schema__"
-                        }
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "description": "Standard response",
+                                "properties": {
+                                    "id": {"type": "integer"},
+                                    "created_at": {"type": "string", "format": "date-time"},
+                                    "updated_at": {"type": "string", "format": "date-time"}
+                                },
+                                "additionalProperties": true
+                            },
+                            {
+                                "type": "object",
+                                "description": "Hierarchical response (for self-referencing models)",
+                                "properties": {
+                                    "id": {"type": "integer"},
+                                    "children": {
+                                        "type": "array",
+                                        "description": "Nested child items",
+                                        "items": {"type": "object"}
+                                    }
+                                }
+                            }
+                        ]
                     },
-                    "example": {
-                        "data": "__JSON:response_example__"
+                    "examples": {
+                        "standard": {
+                            "summary": "Standard response",
+                            "value": "__JSON:response_example__"
+                        },
+                        "with_relations": {
+                            "summary": "Response with relations",
+                            "value": {
+                                "id": 1,
+                                "status": "active",
+                                "user": {
+                                    "id": 42,
+                                    "name": "John Doe",
+                                    "email": "john@example.com"
+                                },
+                                "items": [
+                                    {"id": 1, "product_name": "Item 1", "quantity": 2}
+                                ]
+                            }
+                        },
+                        "hierarchical": {
+                            "summary": "Hierarchical response",
+                            "value": {
+                                "id": 1,
+                                "name": "Parent",
+                                "children": [
+                                    {
+                                        "id": 2,
+                                        "name": "Child 1",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": 3,
+                                        "name": "Child 2",
+                                        "children": [
+                                            {
+                                                "id": 4,
+                                                "name": "Grandchild",
+                                                "children": []
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
                     }
                 }
             }
@@ -70,7 +208,20 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "__VAR:entity_singular__ not found."}
+                            "message": {"type": "string", "example": "No query results for model [App\\Models\\__VAR:entity_singular__] __VAR:example_id__"}
+                        }
+                    }
+                }
+            }
+        },
+        "400": {
+            "description": "Invalid relation requested.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "example": "Relation 'invalidRelation' is not allowed. Allowed: user, items"}
                         }
                     }
                 }
@@ -96,7 +247,7 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "This action is unauthorized."}
+                            "message": {"type": "string", "example": "Forbidden: __VAR:entity_plural__.show"}
                         }
                     }
                 }

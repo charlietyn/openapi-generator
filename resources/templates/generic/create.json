@@ -1,16 +1,45 @@
 {
     "summary": "Create __VAR:entity_singular__",
-    "description": "Creates a new __VAR:entity_singular__ record in the database.\n\n---\n\n## Model Information\n\n### Fillable Fields\nThese fields can be set when creating:\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Validation Rules\n__VAR:validation_description__\n\n---\n\n## Response\n\nOn success, returns the created resource with:\n- Auto-generated `id`\n- All submitted fields\n- Timestamps (`created_at`, `updated_at`)\n- Default values for optional fields",
+    "description": "Creates a new __VAR:entity_singular__ record in the database. Supports both single and bulk creation.\n\n---\n\n## Model Information\n\n### Fillable Fields\nThese fields can be set when creating:\n__VAR:fields_description__\n\n### Available Relations\n__VAR:relations_description__\n\n---\n\n## Single Creation\n\nSend a single object to create one record:\n```json\n{\n  \"field1\": \"value1\",\n  \"field2\": \"value2\"\n}\n```\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"model\": {\n    \"id\": 101,\n    \"field1\": \"value1\",\n    \"field2\": \"value2\",\n    \"created_at\": \"2024-01-20T10:30:00.000000Z\",\n    \"updated_at\": \"2024-01-20T10:30:00.000000Z\"\n  }\n}\n```\n\n---\n\n## Bulk Creation\n\nSend an array wrapped in a key matching the model name (lowercase plural):\n```json\n{\n  \"__VAR:entity_url__\": [\n    {\"field1\": \"value1\"},\n    {\"field1\": \"value2\"},\n    {\"field1\": \"value3\"}\n  ]\n}\n```\n\n**Success Response:**\n```json\n{\n  \"success\": true,\n  \"0\": {\"success\": true, \"model\": {...}},\n  \"1\": {\"success\": true, \"model\": {...}},\n  \"2\": {\"success\": true, \"model\": {...}}\n}\n```\n\n**Partial Failure Response:**\n```json\n{\n  \"success\": false,\n  \"0\": {\"success\": true, \"model\": {...}},\n  \"1\": {\"success\": false, \"errors\": {\"field\": [\"Error message\"]}},\n  \"error\": [[{\"field\": [\"Error message\"]}, \"App\\\\Models\\\\__VAR:entity_singular__\"]]\n}\n```\n\n---\n\n## Validation Rules\n__VAR:validation_description__\n\n---\n\n## Response\n\nOn success, returns the created resource with:\n- Auto-generated `id`\n- All submitted fields\n- Timestamps (`created_at`, `updated_at`)\n- Default values for optional fields",
     "tags": [
         "__VAR:module__"
     ],
     "requestBody": {
         "required": true,
-        "description": "Data for creating a new __VAR:entity_singular__",
+        "description": "Data for creating __VAR:entity_singular__(s). Single object for one record, or object with array for bulk creation.",
         "content": {
             "application/json": {
-                "schema": "__JSON:request_schema__",
-                "example": "__JSON:request_example__"
+                "schema": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "description": "Single creation - direct object with fields"
+                        },
+                        {
+                            "type": "object",
+                            "description": "Bulk creation - array wrapped in model key",
+                            "properties": {
+                                "__VAR:entity_url__": {
+                                    "type": "array",
+                                    "description": "Array of __VAR:entity_singular__ objects to create",
+                                    "items": "__JSON:request_schema__"
+                                }
+                            }
+                        }
+                    ]
+                },
+                "examples": {
+                    "single": {
+                        "summary": "Create single __VAR:entity_singular__",
+                        "value": "__JSON:request_example__"
+                    },
+                    "bulk": {
+                        "summary": "Create multiple __VAR:entity_plural__",
+                        "value": {
+                            "__VAR:entity_url__": ["__JSON:request_example__"]
+                        }
+                    }
+                }
             }
         }
     },
@@ -20,18 +49,110 @@
             "content": {
                 "application/json": {
                     "schema": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "description": "Single creation response",
+                                "properties": {
+                                    "success": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "model": "__JSON:model_schema__"
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "description": "Bulk creation response",
+                                "properties": {
+                                    "success": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "additionalProperties": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {"type": "boolean"},
+                                        "model": "__JSON:model_schema__"
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    "examples": {
+                        "single_success": {
+                            "summary": "Single creation success",
+                            "value": {
+                                "success": true,
+                                "model": "__JSON:response_example__"
+                            }
+                        },
+                        "bulk_success": {
+                            "summary": "Bulk creation success",
+                            "value": {
+                                "success": true,
+                                "0": {
+                                    "success": true,
+                                    "model": "__JSON:response_example__"
+                                },
+                                "1": {
+                                    "success": true,
+                                    "model": "__JSON:response_example__"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "207": {
+            "description": "Partial success - some records created, others failed (bulk operation).",
+            "content": {
+                "application/json": {
+                    "schema": {
                         "type": "object",
                         "properties": {
-                            "data": "__JSON:model_schema__",
-                            "message": {
-                                "type": "string",
-                                "example": "__VAR:entity_singular__ created successfully"
+                            "success": {
+                                "type": "boolean",
+                                "example": false
+                            },
+                            "error": {
+                                "type": "array",
+                                "description": "Array of error details for failed items",
+                                "items": {
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "model": {"type": "object"},
+                                "errors": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
+                                }
                             }
                         }
                     },
                     "example": {
-                        "data": "__JSON:response_example__",
-                        "message": "__VAR:entity_singular__ created successfully"
+                        "success": false,
+                        "0": {
+                            "success": true,
+                            "model": "__JSON:response_example__"
+                        },
+                        "1": {
+                            "success": false,
+                            "errors": "__JSON:validation_errors_example__"
+                        },
+                        "error": [
+                            ["__JSON:validation_errors_example__", "App\\Models\\__VAR:entity_singular__"]
+                        ]
                     }
                 }
             }
@@ -43,22 +164,30 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {
-                                "type": "string",
-                                "example": "The given data was invalid."
+                            "success": {
+                                "type": "boolean",
+                                "example": false
                             },
                             "errors": {
-                                "type": "object",
-                                "additionalProperties": {
-                                    "type": "array",
-                                    "items": {"type": "string"}
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
                                 }
                             }
                         }
                     },
                     "example": {
-                        "message": "The given data was invalid.",
-                        "errors": "__JSON:validation_errors_example__"
+                        "success": false,
+                        "errors": [
+                            {
+                                "field_name": ["The field_name field is required."],
+                                "model": "App\\Models\\__VAR:entity_singular__"
+                            }
+                        ]
                     }
                 }
             }
@@ -83,7 +212,7 @@
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "message": {"type": "string", "example": "This action is unauthorized."}
+                            "message": {"type": "string", "example": "Forbidden: __VAR:entity_plural__.create"}
                         }
                     }
                 }
