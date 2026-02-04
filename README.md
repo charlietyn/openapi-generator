@@ -757,7 +757,7 @@ php artisan module:list
 ],
 ```
 
-For more troubleshooting, see [INSTALLATION.md](INSTALLATION.md).
+For more troubleshooting, see [INSTALLATION.md](docs/INSTALLATION.md).
 
 ---
 

@@ -899,7 +899,7 @@ composer dump-autoload
 
 After installation, read:
 1. **[IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md)** - Advanced patterns and examples
-2. **[README.md](README.md)** - Package overview and features
-3. **[CHANGELOG.md](CHANGELOG.md)** - Version history
+2. **[README.md](../README.md)** - Package overview and features
+3. **[CHANGELOG.md](../CHANGELOG.md)** - Version history
 
 **Installation complete! Ready to generate documentation.** 🎉
