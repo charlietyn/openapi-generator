@@ -188,7 +188,7 @@ return [
             'description' => 'Local Server',
         ],
         [
-            'url' => env('PRODUCTION_URL', 'https://api.example.com'),
+            'url' => 'https://${{projectName}}.com',
             'description' => 'Production Server',
         ],
     ],
