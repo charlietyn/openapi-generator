@@ -429,7 +429,7 @@ return [
     'servers' => [
         ['url' => 'http://127.0.0.1:8000', 'description' => 'Artisan'],
         ['url' => env('APP_URL'), 'description' => 'Local'],
-        ['url' => env('PRODUCTION_URL'), 'description' => 'Production'],
+        ['url' => 'https://${{projectName}}.com', 'description' => 'Production'],
     ],
 
     // Security Schemes
