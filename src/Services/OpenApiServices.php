@@ -22,6 +22,7 @@ use Ronu\OpenApiGenerator\Services\Documentation\DocumentationResolver;
  */
 class OpenApiServices
 {
+    public const GLOBAL_MODULE_INTERNAL = '__global__';
     protected array $spec;
     protected string $title;
     protected array $paths = [];
@@ -624,7 +625,7 @@ class OpenApiServices
         else if ($secondSegment && $this->isGlobalEntityModel($secondSegment)) {
             $structure = [
                 'prefix' => $prefix,
-                'module' => 'general',
+                'module' => self::GLOBAL_MODULE_INTERNAL,
                 'entity' => $secondSegment,
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -632,13 +633,13 @@ class OpenApiServices
             Log::channel('openapi')->info('Global entity detected (not a module)', [
                 'uri' => $uri,
                 'entity' => $secondSegment,
-                'module' => 'general',
+                'module' => self::GLOBAL_MODULE_INTERNAL,
             ]);
         } // PRIORITY 3: CUSTOM URIs (auth endpoints)
         else if ($this->isAuthEndpoint($uri, $lastPart)) {
             $structure = [
                 'prefix' => $prefix,
-                'module' => 'general',
+                'module' => self::GLOBAL_MODULE_INTERNAL,
                 'entity' => 'auth',
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -646,7 +647,7 @@ class OpenApiServices
         else {
             $structure = [
                 'prefix' => $prefix,
-                'module' => 'general',
+                'module' => self::GLOBAL_MODULE_INTERNAL,
                 'entity' => $secondSegment ?? 'resource',
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -892,7 +893,8 @@ class OpenApiServices
 
         $operationId = $requestName['technical_name'];
 
-        $tag = $this->getOrCreateTag($module, $prefix);
+        $publicModule = $this->normalizeModuleForPublicOutput($module);
+        $tag = $this->getOrCreateTag($publicModule, $prefix);
 
         $operation = [
             'operationId' => $operationId,
@@ -901,7 +903,7 @@ class OpenApiServices
             'tags' => [$tag],
             'parameters' => $this->extractParameters($route),
             'responses' => $this->buildResponses($method, $finalAction),
-            'x-module' => $module,
+            'x-module' => $publicModule,
             'x-entity' => $entity,
             'x-action-type' => $finalAction,
         ];
@@ -1134,9 +1136,28 @@ class OpenApiServices
      */
     protected function buildTechnicalName(string $module, string $entity, string $action): string
     {
-        // For now, always include module (even "general")
-        // This ensures consistency
-        return implode('.', [$module, $entity, $action]);
+        if (
+            $this->isGlobalModuleInternal($module)
+            && config('openapi.global_module.omit_from_technical_name', true)
+        ) {
+            return implode('.', [$entity, $action]);
+        }
+
+        return implode('.', [$this->normalizeModuleForPublicOutput($module), $entity, $action]);
+    }
+
+    protected function isGlobalModuleInternal(string $module): bool
+    {
+        return $module === self::GLOBAL_MODULE_INTERNAL;
+    }
+
+    protected function normalizeModuleForPublicOutput(string $module): string
+    {
+        if (!$this->isGlobalModuleInternal($module)) {
+            return $module;
+        }
+
+        return config('openapi.global_module.label', 'global');
     }
 
     /**

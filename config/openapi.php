@@ -191,6 +191,21 @@ return [
     'modules_path' => base_path('Modules'),
 
     /*
+    |--------------------------------------------------------------------------
+    | Global Module Fallback
+    |--------------------------------------------------------------------------
+    |
+    | Internal key avoids collisions with real module names.
+    | Public label is used in OpenAPI/public outputs.
+    |
+    */
+    'global_module' => [
+        'internal_key' => '__global__',
+        'label' => 'global',
+        'omit_from_technical_name' => true,
+    ],
+
+    /*
 +    |--------------------------------------------------------------------------
 +    | Module Exclusions
 +    |--------------------------------------------------------------------------

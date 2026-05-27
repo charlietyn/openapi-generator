@@ -11,6 +11,13 @@ use Ronu\OpenApiGenerator\Tests\TestCase;
 
 class OpenApiGeneratorTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        $this->app['config']->set('openapi.global_module.label', 'global');
+        $this->app['config']->set('openapi.global_module.omit_from_technical_name', true);
+        parent::tearDown();
+    }
+
     public function test_service_provider_registers_openapi_service(): void
     {
         $this->assertTrue($this->app->bound(OpenApiServices::class));
@@ -99,5 +106,35 @@ class OpenApiGeneratorTest extends TestCase
             ['insomnia' => true],
             $service->generate(false, ['movile'], null, 'insomnia')
         );
+    }
+
+    public function test_build_technical_name_omits_internal_global_module_when_configured(): void
+    {
+        $this->app['config']->set('openapi.global_module.label', 'global');
+        $this->app['config']->set('openapi.global_module.omit_from_technical_name', true);
+
+        $service = new class extends OpenApiServices {
+            public function getTechnicalName(string $module, string $entity, string $action): string
+            {
+                return $this->buildTechnicalName($module, $entity, $action);
+            }
+        };
+
+        $this->assertSame('users.list', $service->getTechnicalName('__global__', 'users', 'list'));
+    }
+
+    public function test_build_technical_name_keeps_real_general_module(): void
+    {
+        $this->app['config']->set('openapi.global_module.label', 'global');
+        $this->app['config']->set('openapi.global_module.omit_from_technical_name', true);
+
+        $service = new class extends OpenApiServices {
+            public function getTechnicalName(string $module, string $entity, string $action): string
+            {
+                return $this->buildTechnicalName($module, $entity, $action);
+            }
+        };
+
+        $this->assertSame('general.users.list', $service->getTechnicalName('general', 'users', 'list'));
     }
 }

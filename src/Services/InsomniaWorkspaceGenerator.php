@@ -18,6 +18,7 @@ use Ronu\OpenApiGenerator\Helpers\PlaceholderHelper;
  */
 class InsomniaWorkspaceGenerator
 {
+    protected const GLOBAL_MODULE_INTERNAL = '__global__';
     protected string $workspaceId;
     protected array $spec;
     protected string $environment;
@@ -275,7 +276,7 @@ class InsomniaWorkspaceGenerator
             'parentId' => $parentId,
             'modified' => $timestamp,
             'created' => $timestamp,
-            'name' => ucfirst($module),
+            'name' => ucfirst($this->normalizeModuleForDisplay($module)),
             'metaSortKey' => $baseSortKey,
             'description' => '',
             'environment' => [],
@@ -677,7 +678,8 @@ class InsomniaWorkspaceGenerator
 
         foreach ($paths as $path => $methods) {
             foreach ($methods as $method => $operation) {
-                $module = $operation['x-module'] ?? 'general';
+                $module = $operation['x-module'] ?? config('openapi.global_module.label', 'global');
+                $module = $this->normalizeModuleForGrouping($module);
                 $entity = $operation['x-entity'] ?? 'resource';
                 $apiType = $this->getApiTypeFromPath($path);
 
@@ -694,6 +696,24 @@ class InsomniaWorkspaceGenerator
         }
 
         return $grouped;
+    }
+
+    protected function normalizeModuleForGrouping(string $module): string
+    {
+        if ($module === config('openapi.global_module.label', 'global')) {
+            return self::GLOBAL_MODULE_INTERNAL;
+        }
+
+        return $module;
+    }
+
+    protected function normalizeModuleForDisplay(string $module): string
+    {
+        if ($module === self::GLOBAL_MODULE_INTERNAL) {
+            return config('openapi.global_module.label', 'global');
+        }
+
+        return $module;
     }
 
     /**
