@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-05-27
+
+### Changed
+- Example generation unified into a single `exampleForField()` used by the
+  FormRequest path, the Model-cast path and the schema builder. Values are now
+  inferred from enumerations (`in:`), field-name semantics (email, `*_id`,
+  uuid, password, dates, money, names, geo, ...) and the resolved rule/cast
+  type, instead of emitting empty strings for FormRequest-backed fields.
+
+### Added
+- `config/openapi-docs.php` `custom_endpoints.request_fields` are wired into the
+  request example and schema for documented custom actions.
+
 ## [1.2.8] - 2026-05-27
 
 ### Changed
