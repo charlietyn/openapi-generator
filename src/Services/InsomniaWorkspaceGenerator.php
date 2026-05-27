@@ -677,7 +677,7 @@ class InsomniaWorkspaceGenerator
 
         foreach ($paths as $path => $methods) {
             foreach ($methods as $method => $operation) {
-                $module = $operation['x-module'] ?? 'general';
+                $module = $operation['x-module-key'] ?? ($operation['x-module'] ?? 'general');
                 $entity = $operation['x-entity'] ?? 'resource';
                 $apiType = $this->getApiTypeFromPath($path);
 

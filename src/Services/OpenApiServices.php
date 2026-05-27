@@ -603,6 +603,8 @@ class OpenApiServices
                 $structure = [
                     'prefix' => $prefix,
                     'module' => $module,
+                    'module_key' => $module,
+                    'is_fallback_module' => false,
                     'entity' => $entity,
                     'params' => array_slice($parts, $segmentCount),
                 ];
@@ -610,12 +612,16 @@ class OpenApiServices
                 Log::channel('openapi')->info('Nwidart modular structure detected', [
                     'uri' => $uri,
                     'module' => $module,
+                    'module_key' => $module,
+                    'is_fallback_module' => false,
                     'entity' => $entity,
                 ]);
             } else {
                 $structure = [
                     'prefix' => $prefix,
                     'module' => $secondSegment,
+                    'module_key' => $secondSegment,
+                    'is_fallback_module' => false,
                     'entity' => 'resource',
                     'params' => array_slice($parts, $segmentCount),
                 ];
@@ -625,6 +631,8 @@ class OpenApiServices
             $structure = [
                 'prefix' => $prefix,
                 'module' => 'general',
+                'module_key' => '__fallback_global__',
+                'is_fallback_module' => true,
                 'entity' => $secondSegment,
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -633,12 +641,16 @@ class OpenApiServices
                 'uri' => $uri,
                 'entity' => $secondSegment,
                 'module' => 'general',
+                'module_key' => '__fallback_global__',
+                'is_fallback_module' => true,
             ]);
         } // PRIORITY 3: CUSTOM URIs (auth endpoints)
         else if ($this->isAuthEndpoint($uri, $lastPart)) {
             $structure = [
                 'prefix' => $prefix,
                 'module' => 'general',
+                'module_key' => '__fallback_global__',
+                'is_fallback_module' => true,
                 'entity' => 'auth',
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -647,6 +659,8 @@ class OpenApiServices
             $structure = [
                 'prefix' => $prefix,
                 'module' => 'general',
+                'module_key' => '__fallback_global__',
+                'is_fallback_module' => true,
                 'entity' => $secondSegment ?? 'resource',
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -902,6 +916,8 @@ class OpenApiServices
             'parameters' => $this->extractParameters($route),
             'responses' => $this->buildResponses($method, $finalAction),
             'x-module' => $module,
+            'x-module-key' => $structure['module_key'] ?? $module,
+            'x-module-fallback' => (bool)($structure['is_fallback_module'] ?? false),
             'x-entity' => $entity,
             'x-action-type' => $finalAction,
         ];
