@@ -320,6 +320,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Module Root Exclusion
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, module root routes like /admin/mod_clients are excluded.
+    | This uses route structure detection (e.g. mod_*) and module directory checks.
+    |
+    */
+
+    'exclude_prefix_module_roots' => true,
+
+    /*
+    |--------------------------------------------------------------------------
     | Middleware to Security Mapping
     |--------------------------------------------------------------------------
     |
