@@ -124,18 +124,20 @@ class OpenApiGeneratorTest extends TestCase
         $this->assertArrayHasKey('password', $properties);
         $this->assertArrayHasKey('remember', $properties);
 
+        // The collections must reflect the template's documented example values
+        // faithfully (not empty placeholders). The Postman body is pretty-printed
+        // JSON embedded as a string, so the surrounding json_encode escapes its
+        // quotes (\"email\": \"user@example.com\").
         $postman = $service->generate(false, null, null, 'postman');
         $postmanPayload = json_encode($postman, JSON_THROW_ON_ERROR);
-        // The Postman body is pretty-printed JSON embedded as a string, so the
-        // surrounding json_encode escapes its quotes (\"email\": \"\").
-        $this->assertStringContainsString('\"email\": \"\"', $postmanPayload);
-        $this->assertStringContainsString('\"password\": \"\"', $postmanPayload);
+        $this->assertStringContainsString('\"email\": \"user@example.com\"', $postmanPayload);
+        $this->assertStringContainsString('\"password\": \"password123\"', $postmanPayload);
         $this->assertStringContainsString('\"remember\": false', $postmanPayload);
 
         $insomnia = $service->generate(false, null, null, 'insomnia');
         $insomniaPayload = json_encode($insomnia, JSON_THROW_ON_ERROR);
-        $this->assertStringContainsString('\"email\":\"\"', $insomniaPayload);
-        $this->assertStringContainsString('\"password\":\"\"', $insomniaPayload);
+        $this->assertStringContainsString('\"email\":\"user@example.com\"', $insomniaPayload);
+        $this->assertStringContainsString('\"password\":\"password123\"', $insomniaPayload);
         $this->assertStringContainsString('\"remember\":false', $insomniaPayload);
     }
 

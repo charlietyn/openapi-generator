@@ -620,17 +620,67 @@ class InsomniaWorkspaceGenerator
             return ['mimeType' => 'application/json', 'text' => '{}'];
         }
 
-        $schema = $requestBody['content']['application/json']['schema'] ?? null;
-        if (!$schema) {
+        $content = $requestBody['content']['application/json'] ?? null;
+        if (!$content) {
             return ['mimeType' => 'application/json', 'text' => '{}'];
         }
 
-        $example = $this->generateEmptyExample($schema);
+        // Prefer the documented example (template/metadata) over empty values.
+        $example = $content['example'] ?? null;
+        if (!$this->isUsefulExample($example)) {
+            $schema = $content['schema'] ?? null;
+            if (!$schema) {
+                return ['mimeType' => 'application/json', 'text' => '{}'];
+            }
+            $example = $this->generateExampleFromSchema($schema);
+        }
 
         return [
             'mimeType' => 'application/json',
             'text' => json_encode($example, JSON_UNESCAPED_SLASHES),
         ];
+    }
+
+    /**
+     * An example is "useful" when it carries at least one non-empty value.
+     */
+    protected function isUsefulExample($example): bool
+    {
+        if (!is_array($example) || $example === []) {
+            return false;
+        }
+
+        foreach ($example as $value) {
+            if ($value !== '' && $value !== null && $value !== [] && $value !== 0 && $value !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Build an example from a JSON schema, honouring per-field `example` values.
+     */
+    protected function generateExampleFromSchema(array $schema)
+    {
+        if (($schema['type'] ?? null) === 'object' && isset($schema['properties'])) {
+            $example = [];
+
+            foreach ($schema['properties'] as $field => $fieldSchema) {
+                $example[$field] = array_key_exists('example', $fieldSchema)
+                    ? $fieldSchema['example']
+                    : $this->generateExampleFromSchema($fieldSchema);
+            }
+
+            return $example;
+        }
+
+        if (array_key_exists('example', $schema)) {
+            return $schema['example'];
+        }
+
+        return $this->getEmptyValue($schema);
     }
 
     /**

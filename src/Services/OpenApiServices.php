@@ -1121,20 +1121,25 @@ class OpenApiServices
         $entity = $structure['entity'];
         $method = $route->methods()[0] ?? 'GET';
 
+        // Canonical action drives behaviour (responses, templates, x-action-type).
         if ($relationInfo !== null) {
-            // Relation sub-resource: module.entity.relation.action
             $finalAction = $relationInfo['action'];
-            $technicalName = implode('.', [$module, $entity, $relationInfo['relation_key'], $finalAction]);
         } else {
-            // ✅ CRITICAL FIX: Detect final action properly
             $finalAction = $this->detectActionFromRoute($route, $uri, $entity, $actionType, $routeName);
-
-            // ✅ CRITICAL FIX: Build proper technical name (module.entity.action)
-            $technicalName = $this->buildTechnicalName($module, $entity, $finalAction);
         }
 
-        // ✅ Build display name with prefix
-        $displayName = '[' . strtoupper($prefix) . '] ' . $technicalName;
+        // The operationId / display name prefers the Laravel route name (which
+        // already encodes channel.module.entity[.relation].action), only
+        // normalizing custom-action aliases (e.g. update-multiple → bulk_update).
+        // For unnamed routes we derive a channel-prefixed name instead.
+        if ($routeName) {
+            $technicalName = $this->normalizeOperationName($routeName);
+            $displayName = $technicalName;
+        } else {
+            $relationKey = $relationInfo['relation_key'] ?? null;
+            $technicalName = $this->buildDerivedOperationName($prefix, $structure, $relationKey, $finalAction);
+            $displayName = '[' . strtoupper($prefix) . '] ' . $technicalName;
+        }
 
         // ✅ Description
         $description = $routeName
@@ -1224,6 +1229,56 @@ class OpenApiServices
         // For now, always include module (even "general")
         // This ensures consistency
         return implode('.', [$module, $entity, $action]);
+    }
+
+    /**
+     * Normalize a Laravel route name into a stable operationId.
+     *
+     * The route name is the source of truth (channel.module.entity[.relation].action)
+     * so it is preserved verbatim except for custom-action aliases that must be
+     * canonicalized — e.g. `update-multiple` → `bulk_update`.
+     */
+    protected function normalizeOperationName(string $routeName): string
+    {
+        $parts = explode('.', $routeName);
+        $last = array_pop($parts);
+
+        $aliases = [
+            'update-multiple' => 'bulk_update',
+            'update_multiple' => 'bulk_update',
+            'delete-multiple' => 'bulk_delete',
+            'delete_multiple' => 'bulk_delete',
+        ];
+        $last = $aliases[$last] ?? $last;
+
+        $parts[] = $last;
+
+        return implode('.', $parts);
+    }
+
+    /**
+     * Build a channel-prefixed operationId for routes that have no name.
+     *
+     * Format: {channel}.{module?}.{entity}[.{relation}].{action}. The fallback
+     * "general" module is omitted so it never leaks into the endpoint name.
+     */
+    protected function buildDerivedOperationName(string $prefix, array $structure, ?string $relationKey, string $action): string
+    {
+        $parts = [strtolower($prefix)];
+
+        if (empty($structure['is_fallback_module'])) {
+            $parts[] = $structure['module'];
+        }
+
+        $parts[] = $structure['entity'];
+
+        if ($relationKey !== null && $relationKey !== '') {
+            $parts[] = $relationKey;
+        }
+
+        $parts[] = $action;
+
+        return implode('.', array_filter($parts, static fn($p) => $p !== '' && $p !== null));
     }
 
     /**

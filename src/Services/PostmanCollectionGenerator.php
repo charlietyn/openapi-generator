@@ -289,6 +289,7 @@ class PostmanCollectionGenerator
             'name' => $name,
             'request' => [
                 'method' => strtoupper($method),
+                'auth' => $this->buildRequestAuth($operation),
                 'header' => $this->buildHeaders($operation, $method),
                 'body' => $this->buildRequestBody($operation, $method),
                 'url' => $this->buildUrl($path, $operation),
@@ -297,6 +298,39 @@ class PostmanCollectionGenerator
             'response' => [],
             'event' => $this->buildRequestEvents($method, $operation),
         ];
+    }
+
+    /**
+     * Build per-request auth. Bearer-secured operations override the collection
+     * auth with a bearer flow; everything else (public endpoints, API-key-only)
+     * is set to noauth so a token is not sent where it should not be.
+     */
+    protected function buildRequestAuth(array $operation): array
+    {
+        if (!$this->operationUsesBearer($operation)) {
+            return ['type' => 'noauth'];
+        }
+
+        return [
+            'type' => 'bearer',
+            'bearer' => [
+                ['key' => 'token', 'value' => '{{token}}', 'type' => 'string'],
+            ],
+        ];
+    }
+
+    /**
+     * Whether the operation is secured with the Bearer scheme.
+     */
+    protected function operationUsesBearer(array $operation): bool
+    {
+        foreach ($operation['security'] ?? [] as $requirement) {
+            if (is_array($requirement) && array_key_exists('BearerAuth', $requirement)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -445,14 +479,22 @@ class PostmanCollectionGenerator
             return null;
         }
 
-        $schema = $requestBody['content']['application/json']['schema'] ?? null;
+        $content = $requestBody['content']['application/json'] ?? null;
 
-        if (!$schema) {
+        if (!$content) {
             return null;
         }
 
-        // Generate example with EMPTY values
-        $example = $this->generateEmptyExample($schema);
+        // Prefer the documented example so the collection mirrors the template /
+        // metadata examples; fall back to building one from per-field examples.
+        $example = $content['example'] ?? null;
+        if (!$this->isUsefulExample($example)) {
+            $schema = $content['schema'] ?? null;
+            if (!$schema) {
+                return null;
+            }
+            $example = $this->generateExampleFromSchema($schema);
+        }
 
         return [
             'mode' => 'raw',
@@ -466,21 +508,46 @@ class PostmanCollectionGenerator
     }
 
     /**
-     * Generate example from JSON schema with EMPTY values
+     * An example is "useful" when it carries at least one non-empty value.
+     */
+    protected function isUsefulExample($example): bool
+    {
+        if (!is_array($example) || $example === []) {
+            return false;
+        }
+
+        foreach ($example as $value) {
+            if ($value !== '' && $value !== null && $value !== [] && $value !== 0 && $value !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Build an example from a JSON schema, honouring per-field `example` values
+     * (template/metadata documentation) and falling back to type-based defaults.
      *
      * @param array $schema JSON schema
      * @return array|mixed Example data
      */
-    protected function generateEmptyExample(array $schema)
+    protected function generateExampleFromSchema(array $schema)
     {
-        if ($schema['type'] === 'object' && isset($schema['properties'])) {
+        if (($schema['type'] ?? null) === 'object' && isset($schema['properties'])) {
             $example = [];
 
             foreach ($schema['properties'] as $field => $fieldSchema) {
-                $example[$field] = $this->getEmptyValue($fieldSchema);
+                $example[$field] = array_key_exists('example', $fieldSchema)
+                    ? $fieldSchema['example']
+                    : $this->generateExampleFromSchema($fieldSchema);
             }
 
             return $example;
+        }
+
+        if (array_key_exists('example', $schema)) {
+            return $schema['example'];
         }
 
         return $this->getEmptyValue($schema);
