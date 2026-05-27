@@ -100,4 +100,39 @@ class OpenApiGeneratorTest extends TestCase
             $service->generate(false, ['movile'], null, 'insomnia')
         );
     }
+
+    public function test_auth_login_template_is_reflected_in_openapi_postman_and_insomnia(): void
+    {
+        $this->app['config']->set('openapi.cache.enabled', false);
+
+        Route::post('/api/auth/login', static function () {
+            return response()->json(['ok' => true]);
+        })->name('auth.login');
+
+        $service = new OpenApiServices();
+
+        $openapi = $service->generate(false, null, null, 'openapi');
+        $operation = $openapi['paths']['/api/auth/login']['post'] ?? null;
+
+        $this->assertNotNull($operation);
+        $this->assertArrayHasKey('requestBody', $operation);
+
+        $properties = $operation['requestBody']['content']['application/json']['schema']['properties'] ?? [];
+        $this->assertArrayHasKey('email', $properties);
+        $this->assertArrayHasKey('password', $properties);
+        $this->assertArrayHasKey('remember', $properties);
+
+        $postman = $service->generate(false, null, null, 'postman');
+        $postmanPayload = json_encode($postman, JSON_THROW_ON_ERROR);
+        $this->assertStringContainsString('"email": ""', $postmanPayload);
+        $this->assertStringContainsString('"password": ""', $postmanPayload);
+        $this->assertStringContainsString('"remember": false', $postmanPayload);
+
+        $insomnia = $service->generate(false, null, null, 'insomnia');
+        $insomniaPayload = json_encode($insomnia, JSON_THROW_ON_ERROR);
+        $this->assertStringContainsString('\"email\":\"\"', $insomniaPayload);
+        $this->assertStringContainsString('\"password\":\"\"', $insomniaPayload);
+        $this->assertStringContainsString('\"remember\":false', $insomniaPayload);
+    }
+
 }

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Ronu\OpenApiGenerator\Helpers\PlaceholderHelper;
 use Ronu\OpenApiGenerator\Services\Documentation\DocumentationResolver;
+use Ronu\OpenApiGenerator\Support\ActionAliasResolver;
 
 /**
  * OpenAPI Specification Generator Service - Version 2.1 FIXED
@@ -1099,16 +1100,7 @@ class OpenApiServices
             $routeAction = end($parts);
 
             // Map Laravel Resource actions to our convention
-            $actionMap = [
-                'index' => 'list',
-                'store' => 'create',
-                'show' => 'show',
-                'update' => 'update',
-                'destroy' => 'delete',
-                'edit' => 'edit',
-            ];
-
-            $mappedAction = $actionMap[$routeAction] ?? $routeAction;
+            $mappedAction = ActionAliasResolver::normalize($routeAction);
 
             Log::channel('openapi')->debug('Action detected from route name', [
                 'route_name' => $routeName,
@@ -1438,12 +1430,21 @@ class OpenApiServices
         // GENERIC FALLBACK
         // ==========================================
 
+        $hasRequestSchema = isset($documentation['request_schema']);
+        $hasFormRequest = !empty($documentation['form_request_class']);
+
+        $reason = (!$hasRequestSchema && !$hasFormRequest)
+            ? 'template_missing_or_not_resolved'
+            : 'metadata_incomplete_or_generic_example';
+
         Log::channel('openapi')->warning('[buildRequestBody] ❌ Using generic fallback', [
             'controller' => $controller ? class_basename($controller) : 'none',
             'action' => $action,
-            'reason' => 'No valid request_example found',
+            'reason' => $reason,
             'form_request' => $documentation['form_request_class'] ?? 'not found',
             'scenario' => $documentation['scenario'] ?? 'not detected',
+            'has_request_schema' => $hasRequestSchema,
+            'has_form_request' => $hasFormRequest,
         ]);
 
         return $this->getGenericRequestBody();
