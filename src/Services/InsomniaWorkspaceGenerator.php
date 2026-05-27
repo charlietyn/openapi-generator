@@ -296,9 +296,9 @@ class InsomniaWorkspaceGenerator
     }
 
     /**
-     * Build entity folder and its requests
+     * Build entity folder and its requests (optionally grouped by relation)
      */
-    protected function buildEntityFolder(string $entity, array $requests, string $parentId, int $baseSortKey): array
+    protected function buildEntityFolder(string $entity, array $requestsByRelation, string $parentId, int $baseSortKey): array
     {
         $resources = [];
         $timestamp = $this->getTimestamp();
@@ -318,18 +318,40 @@ class InsomniaWorkspaceGenerator
             '_type' => 'request_group',
         ];
 
-        // Requests
+        // Requests (root) or relation sub-folders
         $requestSortKey = $baseSortKey;
-        foreach ($requests as $request) {
-            $requestResource = $this->buildRequest(
-                $request['path'],
-                $request['method'],
-                $request['operation'],
-                $entityFolderId,
-                $requestSortKey
-            );
-            $resources[] = $requestResource;
-            $requestSortKey += 10;
+        foreach ($requestsByRelation as $relation => $requests) {
+            $relationParentId = $entityFolderId;
+
+            if ($relation !== '__root__') {
+                $relationFolderId = 'fld_' . $this->generateId();
+                $resources[] = [
+                    '_id' => $relationFolderId,
+                    'parentId' => $entityFolderId,
+                    'modified' => $timestamp,
+                    'created' => $timestamp,
+                    'name' => ucfirst($relation),
+                    'metaSortKey' => $requestSortKey,
+                    'description' => '',
+                    'environment' => [],
+                    'environmentPropertyOrder' => null,
+                    '_type' => 'request_group',
+                ];
+                $relationParentId = $relationFolderId;
+                $requestSortKey += 10;
+            }
+
+            foreach ($requests as $request) {
+                $requestResource = $this->buildRequest(
+                    $request['path'],
+                    $request['method'],
+                    $request['operation'],
+                    $relationParentId,
+                    $requestSortKey
+                );
+                $resources[] = $requestResource;
+                $requestSortKey += 10;
+            }
         }
 
         return $resources;
@@ -670,7 +692,7 @@ class InsomniaWorkspaceGenerator
     }
 
     /**
-     * Group paths by API Type → Module → Entity
+     * Group paths by API Type → Module → Entity → Relation?
      */
     protected function groupPaths(array $paths): array
     {
@@ -681,13 +703,14 @@ class InsomniaWorkspaceGenerator
                 $module = $operation['x-module'] ?? config('openapi.global_module.label', 'global');
                 $module = $this->normalizeModuleForGrouping($module);
                 $entity = $operation['x-entity'] ?? 'resource';
+                $relation = $operation['x-relation'] ?? null;
                 $apiType = $this->getApiTypeFromPath($path);
 
                 if (!empty($this->apiTypes) && !in_array($apiType, $this->apiTypes)) {
                     continue;
                 }
 
-                $grouped[$apiType][$module][$entity][] = [
+                $grouped[$apiType][$module][$entity][$relation ?? '__root__'][] = [
                     'path' => $path,
                     'method' => $method,
                     'operation' => $operation,
