@@ -11,13 +11,6 @@ use Ronu\OpenApiGenerator\Tests\TestCase;
 
 class OpenApiGeneratorTest extends TestCase
 {
-    protected function tearDown(): void
-    {
-        $this->app['config']->set('openapi.global_module.label', 'global');
-        $this->app['config']->set('openapi.global_module.omit_from_technical_name', true);
-        parent::tearDown();
-    }
-
     public function test_service_provider_registers_openapi_service(): void
     {
         $this->assertTrue($this->app->bound(OpenApiServices::class));
@@ -108,33 +101,38 @@ class OpenApiGeneratorTest extends TestCase
         );
     }
 
-    public function test_build_technical_name_omits_internal_global_module_when_configured(): void
+    public function test_auth_login_template_is_reflected_in_openapi_postman_and_insomnia(): void
     {
-        $this->app['config']->set('openapi.global_module.label', 'global');
-        $this->app['config']->set('openapi.global_module.omit_from_technical_name', true);
+        $this->app['config']->set('openapi.cache.enabled', false);
 
-        $service = new class extends OpenApiServices {
-            public function getTechnicalName(string $module, string $entity, string $action): string
-            {
-                return $this->buildTechnicalName($module, $entity, $action);
-            }
-        };
+        Route::post('/api/auth/login', static function () {
+            return response()->json(['ok' => true]);
+        })->name('auth.login');
 
-        $this->assertSame('users.list', $service->getTechnicalName('__global__', 'users', 'list'));
+        $service = new OpenApiServices();
+
+        $openapi = $service->generate(false, null, null, 'openapi');
+        $operation = $openapi['paths']['/api/auth/login']['post'] ?? null;
+
+        $this->assertNotNull($operation);
+        $this->assertArrayHasKey('requestBody', $operation);
+
+        $properties = $operation['requestBody']['content']['application/json']['schema']['properties'] ?? [];
+        $this->assertArrayHasKey('email', $properties);
+        $this->assertArrayHasKey('password', $properties);
+        $this->assertArrayHasKey('remember', $properties);
+
+        $postman = $service->generate(false, null, null, 'postman');
+        $postmanPayload = json_encode($postman, JSON_THROW_ON_ERROR);
+        $this->assertStringContainsString('"email": ""', $postmanPayload);
+        $this->assertStringContainsString('"password": ""', $postmanPayload);
+        $this->assertStringContainsString('"remember": false', $postmanPayload);
+
+        $insomnia = $service->generate(false, null, null, 'insomnia');
+        $insomniaPayload = json_encode($insomnia, JSON_THROW_ON_ERROR);
+        $this->assertStringContainsString('\"email\":\"\"', $insomniaPayload);
+        $this->assertStringContainsString('\"password\":\"\"', $insomniaPayload);
+        $this->assertStringContainsString('\"remember\":false', $insomniaPayload);
     }
 
-    public function test_build_technical_name_keeps_real_general_module(): void
-    {
-        $this->app['config']->set('openapi.global_module.label', 'global');
-        $this->app['config']->set('openapi.global_module.omit_from_technical_name', true);
-
-        $service = new class extends OpenApiServices {
-            public function getTechnicalName(string $module, string $entity, string $action): string
-            {
-                return $this->buildTechnicalName($module, $entity, $action);
-            }
-        };
-
-        $this->assertSame('general.users.list', $service->getTechnicalName('general', 'users', 'list'));
-    }
 }

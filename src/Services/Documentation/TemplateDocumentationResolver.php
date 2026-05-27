@@ -5,6 +5,7 @@ namespace Ronu\OpenApiGenerator\Services\Documentation;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Ronu\OpenApiGenerator\Support\ActionAliasResolver;
 
 /**
  * Template Documentation Resolver - JSON Version
@@ -128,6 +129,12 @@ class TemplateDocumentationResolver
                 'template' => basename($customTemplate),
             ]);
             $result = $this->renderTemplate($customTemplate, $metadata);
+            Log::channel('openapi')->info('Template resolution final', [
+                'requested_action' => $action,
+                'aliases_applied' => ActionAliasResolver::aliasesFor($action),
+                'resolved_template' => $customTemplate,
+                'resolution_type' => 'custom',
+            ]);
             return $this->cacheResult($cacheKey, $result);
         }
 
@@ -139,6 +146,12 @@ class TemplateDocumentationResolver
                 'template' => basename($genericTemplate),
             ]);
             $result = $this->renderTemplate($genericTemplate, $metadata);
+            Log::channel('openapi')->info('Template resolution final', [
+                'requested_action' => $action,
+                'aliases_applied' => ActionAliasResolver::aliasesFor($action),
+                'resolved_template' => $genericTemplate,
+                'resolution_type' => 'generic',
+            ]);
             return $this->cacheResult($cacheKey, $result);
         }
 
@@ -146,6 +159,10 @@ class TemplateDocumentationResolver
         Log::channel('openapi')->warning('No template found, using fallback', [
             'entity' => $entity,
             'action' => $action,
+            'requested_action' => $action,
+            'aliases_applied' => ActionAliasResolver::aliasesFor($action),
+            'resolved_template' => null,
+            'resolution_type' => 'fallback',
         ]);
         $result = $this->getGenericFallback($entity, $action, $metadata);
         return $this->cacheResult($cacheKey, $result);
@@ -180,16 +197,7 @@ class TemplateDocumentationResolver
      */
     protected function findGenericTemplate(string $action): ?string
     {
-        // Action aliases
-        $mapping = [
-            'index' => 'list',
-            'store' => 'create',
-            'edit' => 'update',
-            'destroy' => 'delete',
-            'update-multiple' => 'bulk_update',
-        ];
-
-        $templateName = $mapping[$action] ?? $action;
+        $templateName = ActionAliasResolver::normalize($action);
         return $this->getTemplatePath("generic/{$templateName}.json");
     }
 
@@ -215,6 +223,13 @@ class TemplateDocumentationResolver
                 'path' => $userPath,
             ]);
             return $userPath;
+        }
+
+        if (!file_exists($this->userTemplatesPath)) {
+            Log::channel('openapi')->info('Published templates not found, using package fallback path', [
+                'expected_user_templates_path' => $this->userTemplatesPath,
+                'fallback_package_templates_path' => $this->packageTemplatesPath,
+            ]);
         }
 
         // Priority 2: Package templates (fallback, always available)
