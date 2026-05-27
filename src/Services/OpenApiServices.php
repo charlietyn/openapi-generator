@@ -876,7 +876,7 @@ class OpenApiServices
 
         $routeAction = $this->extractAction($action, $method);
 
-        $requestName = $this->generateRequestName($route, $prefix, $structure, $routeAction);
+        $requestName = $this->generateRequestName($route, $prefix, $structure, $routeAction, $action);
 
         // Use the final action detected from URI (validate, bulk_update, etc.)
         $finalAction = $requestName['final_action'] ?? $routeAction;
@@ -896,7 +896,7 @@ class OpenApiServices
 
         $operation = [
             'operationId' => $operationId,
-            'summary' => $requestName['display_name'],
+            'summary' => $requestName['summary'],
             'description' => $documentation['description'] ?? $requestName['description'],
             'tags' => [$tag],
             'parameters' => $this->extractParameters($route),
@@ -1032,22 +1032,25 @@ class OpenApiServices
      * - Unnamed route POST /users/validate → general.users.validate
      * - Unnamed route POST /api-apps/{id}/rotate → general.api-apps.rotate
      */
-    protected function generateRequestName($route, string $prefix, array $structure, string $actionType): array
+    protected function generateRequestName($route, string $prefix, array $structure, string $actionType, array $routeAction): array
     {
         $routeName = $route->getName();
         $uri = $route->uri();
         $module = $structure['module'];
         $entity = $structure['entity'];
         $method = $route->methods()[0] ?? 'GET';
+        $apiType = $this->resolveApiTypeFromPrefix($prefix);
+        $relation = $routeAction['x-relation'] ?? null;
 
         // ✅ CRITICAL FIX: Detect final action properly
         $finalAction = $this->detectActionFromRoute($route, $uri, $entity, $actionType, $routeName);
 
-        // ✅ CRITICAL FIX: Build proper technical name (module.entity.action)
-        $technicalName = $this->buildTechnicalName($module, $entity, $finalAction);
+        // ✅ CRITICAL FIX: Build proper technical name with apiType and optional relation
+        $technicalName = $this->buildTechnicalName($apiType, $module, $entity, $finalAction, $relation);
 
         // ✅ Build display name with prefix
         $displayName = '[' . strtoupper($prefix) . '] ' . $technicalName;
+        $summary = Str::headline(str_replace('.', ' ', $technicalName));
 
         // ✅ Description
         $description = $routeName
@@ -1067,6 +1070,7 @@ class OpenApiServices
         return [
             'display_name' => $displayName,
             'technical_name' => $technicalName,
+            'summary' => $summary,
             'description' => $description,
             'final_action' => $finalAction,
         ];
@@ -1099,16 +1103,7 @@ class OpenApiServices
             $routeAction = end($parts);
 
             // Map Laravel Resource actions to our convention
-            $actionMap = [
-                'index' => 'list',
-                'store' => 'create',
-                'show' => 'show',
-                'update' => 'update',
-                'destroy' => 'delete',
-                'edit' => 'edit',
-            ];
-
-            $mappedAction = $actionMap[$routeAction] ?? $routeAction;
+            $mappedAction = $this->canonicalizeAction($routeAction);
 
             Log::channel('openapi')->debug('Action detected from route name', [
                 'route_name' => $routeName,
@@ -1116,13 +1111,13 @@ class OpenApiServices
                 'mapped_action' => $mappedAction,
             ]);
             if (empty($mappedAction)) {
-                $mappedAction = $this->extractAction($route->getAction(), $route->methods()[0] ?? 'GET');;
+                $mappedAction = $this->extractAction($route->getAction(), $route->methods()[0] ?? 'GET');
             }
             return $mappedAction;
         }
 
         // PRIORITY 3: Use detected action type
-        return $actionType;
+        return $this->canonicalizeAction($actionType);
     }
 
     /**
@@ -1132,11 +1127,14 @@ class OpenApiServices
      * - If module is "general", can omit it or keep it
      * - Ensures consistent format
      */
-    protected function buildTechnicalName(string $module, string $entity, string $action): string
+    protected function buildTechnicalName(string $apiType, string $module, string $entity, string $action, ?string $relation = null): string
     {
-        // For now, always include module (even "general")
-        // This ensures consistency
-        return implode('.', [$module, $entity, $action]);
+        $segments = [$apiType, $module, $entity];
+        if (!empty($relation)) {
+            $segments[] = Str::kebab($relation);
+        }
+        $segments[] = $this->canonicalizeAction($action);
+        return implode('.', $segments);
     }
 
     /**
@@ -1157,16 +1155,7 @@ class OpenApiServices
      */
     protected function mapActionToOperation(string $action, string $method): string
     {
-        $mapping = [
-            'index' => 'list',
-            'store' => 'create',
-            'show' => 'show',
-            'update' => 'update',
-            'destroy' => 'delete',
-        ];
-
-//        return $mapping[$action] ?? Str::kebab($action);
-        return $mapping[$action] ?? $action;
+        return $this->canonicalizeAction($action);
     }
 
     /**
@@ -1182,7 +1171,45 @@ class OpenApiServices
             'delete' => 'delete',
         ];
 
-        return $mapping[$method] ?? 'action';
+        return $this->canonicalizeAction($mapping[$method] ?? 'action');
+    }
+
+    protected function resolveApiTypeFromPrefix(string $prefix): string
+    {
+        foreach ($this->getEnabledApiTypes() as $typeKey => $typeConfig) {
+            if (($typeConfig['prefix'] ?? null) === $prefix) {
+                return $typeKey;
+            }
+        }
+
+        return Str::kebab($prefix);
+    }
+
+    protected function canonicalizeAction(string $action): string
+    {
+        $normalized = Str::of($action)->lower()->replace('_', '-')->value();
+        $aliases = [
+            'store' => 'create',
+            'list' => 'index',
+            'bulk-update' => 'bulk_update',
+            'update-multiple' => 'bulk_update',
+        ];
+
+        if (isset($aliases[$normalized])) {
+            return $aliases[$normalized];
+        }
+
+        $supported = [
+            'index', 'show', 'validate', 'create', 'update', 'delete',
+            'bulk', 'destroy', 'delete-by-id',
+            'export-excel', 'export-pdf',
+        ];
+
+        if (in_array($normalized, $supported, true)) {
+            return $normalized;
+        }
+
+        return $normalized;
     }
 
     /**
@@ -1535,7 +1562,7 @@ class OpenApiServices
                 'fallback_action' => $fallbackAction,
             ]);
 
-            return $lastSegment;
+            return $this->canonicalizeAction($lastSegment);
         }
 
         Log::channel('openapi')->debug('Using fallback action (no custom endpoint)', [
@@ -1544,6 +1571,6 @@ class OpenApiServices
             'action' => $fallbackAction,
         ]);
 
-        return $fallbackAction;
+        return $this->canonicalizeAction($fallbackAction);
     }
 }
