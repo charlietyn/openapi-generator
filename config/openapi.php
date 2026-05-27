@@ -181,6 +181,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Admin Public Patterns
+    |--------------------------------------------------------------------------
+    |
+    | Admin routes matching these patterns are treated as public and will not
+    | receive implicit BearerAuth when middleware-based security is absent.
+    |
+    */
+    'admin_public_patterns' => [
+        'admin/login',
+        'admin/register',
+        'admin/forgot-password',
+        'admin/reset-password',
+        'admin/password/*',
+        'admin/auth/login',
+        'admin/auth/register',
+        'admin/auth/forgot-password',
+        'admin/auth/reset-password',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Modules Path
     |--------------------------------------------------------------------------
     |

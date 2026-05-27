@@ -261,6 +261,7 @@ class PostmanCollectionGenerator
             'name' => $name,
             'request' => [
                 'method' => strtoupper($method),
+                'auth' => $this->buildRequestAuth($operation),
                 'header' => $this->buildHeaders($operation, $method),
                 'body' => $this->buildRequestBody($operation, $method),
                 'url' => $this->buildUrl($path, $operation),
@@ -385,13 +386,12 @@ class PostmanCollectionGenerator
             ];
         }
 
-        // Authorization if requires security (disabled by default)
+        // Authorization header when route requires security
         if (!empty($operation['security'])) {
             $headers[] = [
                 'key' => 'Authorization',
                 'value' => 'Bearer {{token}}',
                 'type' => 'text',
-                'disabled' => true,
             ];
         }
 
@@ -533,6 +533,27 @@ class PostmanCollectionGenerator
      */
     protected function buildDefaultAuth(): array
     {
+        return [
+            'type' => 'bearer',
+            'bearer' => [
+                [
+                    'key' => 'token',
+                    'value' => '{{token}}',
+                    'type' => 'string',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Build request auth based on operation security.
+     */
+    protected function buildRequestAuth(array $operation): array
+    {
+        if (empty($operation['security'])) {
+            return ['type' => 'noauth'];
+        }
+
         return [
             'type' => 'bearer',
             'bearer' => [
