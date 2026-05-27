@@ -39,6 +39,7 @@ class MetadataExtractor
         $cacheKey = "{$module}.{$entity}.{$action}";
         $this->cache['current_entity'] = $entity;
         $this->cache['current_module'] = $module;
+        $this->cache['current_action'] = $action;
         if (isset($this->cache[$cacheKey])) {
             return $this->cache[$cacheKey];
         }
@@ -173,6 +174,11 @@ class MetadataExtractor
 
     protected function generateRequestSchemaFromFormRequest(?string $formRequestClass, string $scenario): array
     {
+        $customSchema = $this->customEndpointSchema();
+        if ($customSchema !== null) {
+            return $customSchema;
+        }
+
         $rules = $this->getValidationRulesFromFormRequest($formRequestClass, $scenario);
 
         if (empty($rules)) {
@@ -212,6 +218,19 @@ class MetadataExtractor
      */
     protected function generateRequestExampleFromFormRequest(?string $formRequestClass, string $scenario): array
     {
+        // ==========================================
+        // PRIORITY 0: Documented custom endpoint (config/openapi-docs.php)
+        // ==========================================
+
+        $customExample = $this->customEndpointExample();
+        if (!empty($customExample)) {
+            Log::channel('openapi')->info('✅ Request example from documented custom endpoint', [
+                'fields' => array_keys($customExample),
+            ]);
+
+            return $customExample;
+        }
+
         // ==========================================
         // PRIORITY 1: FormRequest validation rules
         // ==========================================
@@ -318,41 +337,298 @@ class MetadataExtractor
      */
     protected function getExampleValueFromCast(string $castType, string $field): mixed
     {
-        // Detect from field name
-        if (Str::endsWith($field, '_id') || $field === 'id') {
+        // Delegate to the unified, realistic example generator (cast-driven).
+        return $this->exampleForField($field, null, $castType);
+    }
+
+    /**
+     * Unified, realistic example generator.
+     *
+     * Single source of truth for example values, shared by the FormRequest path,
+     * the Model-cast path and the schema builder so OpenAPI / Postman / Insomnia
+     * all show faithful, useful data instead of empty placeholders.
+     *
+     * Inference order: enumerations in the rules → field-name semantics →
+     * resolved type (validation rule or model cast).
+     *
+     * @param string $field     Field name
+     * @param mixed  $rule      Validation rule (string|array) or null
+     * @param string|null $cast Model cast type or null
+     * @return mixed
+     */
+    protected function exampleForField(string $field, $rule = null, ?string $cast = null): mixed
+    {
+        $ruleString = $this->ruleToString($rule);
+        $type = $this->resolveExampleType($ruleString, $cast);
+
+        // Enumerations win: in:a,b,c → first option (typed).
+        if (preg_match('/(?:^|\|)in:([^|]+)/', $ruleString, $m)) {
+            $options = array_values(array_filter(
+                array_map('trim', explode(',', $m[1])),
+                static fn($v) => $v !== ''
+            ));
+            if (!empty($options)) {
+                $first = $options[0];
+                return match ($type) {
+                    'integer' => (int) $first,
+                    'number' => (float) $first,
+                    'boolean' => filter_var($first, FILTER_VALIDATE_BOOLEAN),
+                    default => $first,
+                };
+            }
+        }
+
+        if ($type === 'boolean') {
+            return true;
+        }
+        if ($type === 'array') {
+            return [];
+        }
+
+        // Semantic inference by field name.
+        $semantic = $this->exampleByFieldName($field, $type, $ruleString);
+        if ($semantic !== null) {
+            return $semantic;
+        }
+
+        // Type-based defaults (non-empty / realistic).
+        return match ($type) {
+            'integer' => $this->minFromRule($ruleString, 1),
+            'number' => 9.99,
+            'date' => now()->format('Y-m-d'),
+            'datetime' => now()->format('Y-m-d H:i:s'),
+            default => 'example',
+        };
+    }
+
+    /**
+     * Flatten a validation rule (string|array) into a pipe-delimited string.
+     */
+    protected function ruleToString($rule): string
+    {
+        if (is_array($rule)) {
+            return implode('|', array_map(static fn($r) => is_string($r) ? $r : '', $rule));
+        }
+
+        return (string) $rule;
+    }
+
+    /**
+     * Resolve a canonical type from validation rules and/or a model cast.
+     */
+    protected function resolveExampleType(string $ruleString, ?string $cast): string
+    {
+        $cast = strtolower((string) $cast);
+
+        if (Str::contains($ruleString, 'boolean') || in_array($cast, ['bool', 'boolean'], true)) {
+            return 'boolean';
+        }
+        if (Str::contains($ruleString, 'integer') || in_array($cast, ['int', 'integer'], true)) {
+            return 'integer';
+        }
+        if (Str::contains($ruleString, 'numeric') || in_array($cast, ['float', 'double', 'decimal'], true)) {
+            return 'number';
+        }
+        if (Str::contains($ruleString, 'array') || in_array($cast, ['array', 'json', 'collection'], true)) {
+            return 'array';
+        }
+        if (in_array($cast, ['datetime', 'timestamp'], true)) {
+            return 'datetime';
+        }
+        if (Str::contains($ruleString, 'date') || $cast === 'date') {
+            return 'date';
+        }
+
+        return 'string';
+    }
+
+    /**
+     * Extract a min:N constraint, or return a sensible default.
+     */
+    protected function minFromRule(string $ruleString, int $default): int
+    {
+        if (preg_match('/(?:^|\|)min:(\d+)/', $ruleString, $m)) {
+            return (int) $m[1];
+        }
+
+        return $default;
+    }
+
+    /**
+     * Infer a realistic value from the field name (short tokens matched
+     * carefully to avoid false positives like "country" → "count").
+     */
+    protected function exampleByFieldName(string $field, string $type, string $ruleString): mixed
+    {
+        $f = strtolower($field);
+
+        // Identifiers
+        if ($f === 'id' || Str::endsWith($f, '_id')) {
             return 1;
         }
 
-        if (Str::contains($field, ['email'])) {
+        // Numeric semantics (valid for any numeric/string type)
+        if ($f === 'lat' || Str::contains($f, 'latitude')) {
+            return 40.416775;
+        }
+        if ($f === 'lng' || $f === 'lon' || Str::contains($f, 'longitude')) {
+            return -3.703790;
+        }
+        if (Str::contains($f, ['price', 'amount', 'total', 'cost', 'salary', 'balance', 'subtotal', 'discount'])
+            || $f === 'fee' || Str::endsWith($f, '_fee') || $f === 'tax' || Str::endsWith($f, '_tax')) {
+            return $type === 'integer' ? 20 : 19.99;
+        }
+        if (Str::contains($f, ['quantity', 'stock', 'qty', 'priority', 'position'])
+            || $f === 'age' || Str::endsWith($f, '_age')
+            || $f === 'count' || Str::endsWith($f, '_count')) {
+            return 10;
+        }
+
+        // String-oriented values only make sense for string/date types.
+        if (!in_array($type, ['string', 'date', 'datetime'], true)) {
+            return null;
+        }
+
+        if (Str::contains($ruleString, 'uuid') || Str::contains($f, ['uuid', 'guid'])) {
+            return '550e8400-e29b-41d4-a716-446655440000';
+        }
+        if (Str::contains($ruleString, 'email') || Str::contains($f, 'email')) {
             return 'user@example.com';
         }
-
-        if (Str::contains($field, ['phone', 'tel'])) {
-            return '+1234567890';
+        if (Str::contains($f, 'password')) {
+            return 'P@ssw0rd123';
         }
-
-        if (Str::contains($field, ['url', 'link', 'website'])) {
+        if (Str::contains($ruleString, 'url') || Str::contains($f, ['url', 'website', 'link'])) {
             return 'https://example.com';
         }
-
-        if (Str::contains($field, ['password'])) {
-            return 'password123';
+        if (Str::contains($f, ['phone', 'mobile', 'whatsapp']) || $f === 'tel' || Str::endsWith($f, '_tel')) {
+            return '+34123456789';
         }
-
-        if (Str::contains($field, ['date']) && !Str::contains($field, ['update', 'create', 'delete'])) {
+        if (Str::contains($f, 'slug')) {
+            return 'example-slug';
+        }
+        if (Str::contains($f, ['color', 'colour'])) {
+            return '#3490dc';
+        }
+        if (Str::endsWith($f, '_at') || Str::contains($f, ['date', 'fecha'])) {
             return now()->format('Y-m-d');
         }
+        if (Str::contains($f, ['description', 'notes', 'comment', 'body', 'content', 'message', 'observ', 'detail', 'bio', 'remark'])) {
+            return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.';
+        }
+        if ($f === 'name' || Str::endsWith($f, '_name') || Str::contains($f, ['fullname', 'username'])) {
+            return 'John Doe';
+        }
+        if (Str::contains($f, ['title', 'label', 'subject'])) {
+            return 'Example title';
+        }
+        if (Str::contains($f, ['address', 'street'])) {
+            return '123 Example St';
+        }
+        if (Str::contains($f, 'city')) {
+            return 'Madrid';
+        }
+        if (Str::contains($f, 'country')) {
+            return 'ES';
+        }
+        if (Str::contains($f, ['code', 'sku', 'reference']) || $f === 'ref') {
+            return 'ABC123';
+        }
+        if (Str::contains($f, 'token')) {
+            return 'example-token';
+        }
+        if (Str::contains($f, ['status', 'state'])) {
+            return 'active';
+        }
+        if (Str::contains($f, ['gender', 'sex'])) {
+            return 'male';
+        }
+        if (Str::contains($f, ['lang', 'locale'])) {
+            return 'es';
+        }
 
-        // Detect from cast type
-        return match ($castType) {
-            'int', 'integer' => 0,
-            'float', 'double', 'decimal' => 0.0,
-            'bool', 'boolean' => false,
-            'array', 'json' => [],
-            'date' => now()->format('Y-m-d'),
-            'datetime', 'timestamp' => now()->format('Y-m-d H:i:s'),
-            'collection' => [],
-            default => '',
+        return null;
+    }
+
+    /**
+     * Documentation definition for the current entity.action custom endpoint.
+     */
+    protected function customEndpointDefinition(): ?array
+    {
+        $entity = (string) ($this->cache['current_entity'] ?? '');
+        $action = (string) ($this->cache['current_action'] ?? '');
+
+        if ($entity === '' || $action === '') {
+            return null;
+        }
+
+        $defs = config('openapi-docs.custom_endpoints', []);
+
+        foreach ([Str::kebab($entity) . '.' . $action, $entity . '.' . $action] as $key) {
+            if (isset($defs[$key]) && is_array($defs[$key])) {
+                return $defs[$key];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build a request example from a documented custom endpoint, if any.
+     */
+    protected function customEndpointExample(): ?array
+    {
+        $def = $this->customEndpointDefinition();
+
+        if (empty($def['request_fields']) || !is_array($def['request_fields'])) {
+            return null;
+        }
+
+        $example = [];
+        foreach (array_keys($def['request_fields']) as $field) {
+            $example[(string) $field] = $this->exampleForField((string) $field);
+        }
+
+        return $example;
+    }
+
+    /**
+     * Build a request schema from a documented custom endpoint, if any.
+     */
+    protected function customEndpointSchema(): ?array
+    {
+        $def = $this->customEndpointDefinition();
+
+        if (empty($def['request_fields']) || !is_array($def['request_fields'])) {
+            return null;
+        }
+
+        $properties = [];
+        foreach ($def['request_fields'] as $field => $description) {
+            $schema = $this->valueToSchema($this->exampleForField((string) $field));
+            if (is_string($description) && $description !== '') {
+                $schema['description'] = $description;
+            }
+            $properties[(string) $field] = $schema;
+        }
+
+        return [
+            'type' => 'object',
+            'properties' => $properties,
+        ];
+    }
+
+    /**
+     * Derive a JSON-schema fragment (type + example) from a PHP example value.
+     */
+    protected function valueToSchema($value): array
+    {
+        return match (true) {
+            is_bool($value) => ['type' => 'boolean', 'example' => $value],
+            is_int($value) => ['type' => 'integer', 'example' => $value],
+            is_float($value) => ['type' => 'number', 'example' => $value],
+            is_array($value) => ['type' => 'array', 'items' => ['type' => 'string'], 'example' => $value],
+            default => ['type' => 'string', 'example' => (string) $value],
         };
     }
 
@@ -1756,33 +2032,27 @@ class MetadataExtractor
 
         if (Str::contains($rule, ['integer', 'numeric'])) {
             $schema['type'] = Str::contains($rule, 'integer') ? 'integer' : 'number';
-            $schema['example'] = 0;
         }
 
         if (Str::contains($rule, 'boolean')) {
             $schema['type'] = 'boolean';
-            $schema['example'] = false;
         }
 
         if (Str::contains($rule, 'array')) {
             $schema['type'] = 'array';
             $schema['items'] = ['type' => 'string'];
-            $schema['example'] = [];
         }
 
         if (Str::contains($rule, 'email')) {
             $schema['format'] = 'email';
-            $schema['example'] = 'user@example.com';
         }
 
         if (Str::contains($rule, 'url')) {
             $schema['format'] = 'uri';
-            $schema['example'] = 'https://example.com';
         }
 
         if (Str::contains($rule, 'date')) {
             $schema['format'] = 'date';
-            $schema['example'] = '2024-12-25';
         }
 
         if (preg_match('/min:(\d+)/', $rule, $matches)) {
@@ -1792,40 +2062,16 @@ class MetadataExtractor
             $schema['maxLength'] = (int)$matches[1];
         }
 
-        if ($schema['type'] === 'string' && !isset($schema['example'])) {
-            $schema['example'] = '';
-        }
+        // Realistic, field-aware example (shared generator).
+        $schema['example'] = $this->exampleForField($fieldName, $rule);
 
         return $schema;
     }
 
     protected function getExampleValue($rule, string $fieldName)
     {
-        $ruleString = is_array($rule)
-            ? implode('|', array_map(static fn($r) => is_string($r) ? $r : '', $rule))
-            : (string)$rule;
-
-        if (Str::contains($ruleString, 'boolean')) {
-            return false;
-        }
-
-        if (Str::contains($ruleString, 'integer')) {
-            return 0;
-        }
-
-        if (Str::contains($ruleString, 'numeric')) {
-            return 0.0;
-        }
-
-        if (Str::contains($ruleString, 'array')) {
-            return [];
-        }
-
-        if (Str::contains($ruleString, 'email') || $fieldName === 'email') {
-            return '';
-        }
-
-        return '';
+        // Delegate to the unified, realistic example generator (rule-driven).
+        return $this->exampleForField($fieldName, $rule);
     }
 
     protected function generateResponseExample(?string $modelClass): array
