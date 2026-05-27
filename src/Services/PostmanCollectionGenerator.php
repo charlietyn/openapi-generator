@@ -108,7 +108,7 @@ class PostmanCollectionGenerator
     }
 
     /**
-     * Group paths by API Type → Module → Entity
+     * Group paths by API Type → Module → Entity → Relation?
      *
      * @param array $paths OpenAPI paths
      * @return array Grouped paths
@@ -122,6 +122,7 @@ class PostmanCollectionGenerator
                 // Extract metadata from operation
                 $module = $operation['x-module'] ?? 'general';
                 $entity = $operation['x-entity'] ?? 'resource';
+                $relation = $operation['x-relation'] ?? null;
                 $apiType = $this->getApiTypeFromOperation($operation, $path);
 
                 // Skip if not in filter
@@ -129,7 +130,7 @@ class PostmanCollectionGenerator
                     continue;
                 }
 
-                $grouped[$apiType][$module][$entity][] = [
+                $grouped[$apiType][$module][$entity][$relation ?? '__root__'][] = [
                     'path' => $path,
                     'method' => $method,
                     'operation' => $operation,
@@ -227,21 +228,34 @@ class PostmanCollectionGenerator
      * @param array $requests Requests data
      * @return array Folder structure
      */
-    protected function buildEntityFolder(string $entity, array $requests): array
+    protected function buildEntityFolder(string $entity, array $requestsByRelation): array
     {
-        $requestItems = [];
+        $entityItems = [];
 
-        foreach ($requests as $request) {
-            $requestItems[] = $this->buildRequest(
-                $request['path'],
-                $request['method'],
-                $request['operation']
-            );
+        foreach ($requestsByRelation as $relation => $requests) {
+            $requestItems = [];
+            foreach ($requests as $request) {
+                $requestItems[] = $this->buildRequest(
+                    $request['path'],
+                    $request['method'],
+                    $request['operation']
+                );
+            }
+
+            if ($relation === '__root__') {
+                $entityItems = array_merge($entityItems, $requestItems);
+                continue;
+            }
+
+            $entityItems[] = [
+                'name' => ucfirst($relation),
+                'item' => $requestItems,
+            ];
         }
 
         return [
             'name' => ucfirst($entity),
-            'item' => $requestItems,
+            'item' => $entityItems,
         ];
     }
 

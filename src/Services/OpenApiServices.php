@@ -906,6 +906,11 @@ class OpenApiServices
             'x-action-type' => $finalAction,
         ];
 
+        $relation = $this->extractRelationFromUri($uri, $structure);
+        if ($relation !== null) {
+            $operation['x-relation'] = $relation;
+        }
+
         $security = $this->extractSecurity($route);
         if (!empty($security)) {
             $operation['security'] = $security;
@@ -923,6 +928,49 @@ class OpenApiServices
         }
 
         return $operation;
+    }
+
+    /**
+     * Extract relation from URI patterns like /{entity}/{id}/{relation} and variants.
+     */
+    protected function extractRelationFromUri(string $uri, array $structure): ?string
+    {
+        $segments = explode('/', trim($uri, '/'));
+        $entity = strtolower($structure['entity'] ?? '');
+
+        if ($entity === '') {
+            return null;
+        }
+
+        $entityIndex = null;
+        foreach ($segments as $index => $segment) {
+            if (strtolower($segment) === $entity) {
+                $entityIndex = $index;
+                break;
+            }
+        }
+
+        if ($entityIndex === null) {
+            return null;
+        }
+
+        $tail = array_slice($segments, $entityIndex + 1);
+        if (empty($tail)) {
+            return null;
+        }
+
+        // Skip entity identifier segment when present: /{entity}/{id}/...
+        if (isset($tail[0]) && Str::startsWith($tail[0], '{')) {
+            $tail = array_slice($tail, 1);
+        }
+
+        foreach ($tail as $segment) {
+            if (!Str::startsWith($segment, '{') && $segment !== '') {
+                return Str::kebab($segment);
+            }
+        }
+
+        return null;
     }
 
     /**
