@@ -1392,7 +1392,35 @@ class OpenApiServices
             }
         }
 
+        if (empty($security) && $this->shouldForceAdminBearerAuth($route)) {
+            $security[] = ['BearerAuth' => []];
+        }
+
         return $security;
+    }
+
+    protected function shouldForceAdminBearerAuth($route): bool
+    {
+        $uri = trim($route->uri(), '/');
+        $adminPrefix = trim((string) config('openapi.api_types.admin.prefix', 'admin'), '/');
+
+        if ($adminPrefix === '') {
+            return false;
+        }
+
+        if (!Str::is($adminPrefix, $uri) && !Str::is($adminPrefix . '/*', $uri)) {
+            return false;
+        }
+
+        $publicPatterns = config('openapi.admin_public_patterns', []);
+        foreach ($publicPatterns as $pattern) {
+            $normalizedPattern = trim((string) $pattern, '/');
+            if ($normalizedPattern !== '' && Str::is($normalizedPattern, $uri)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

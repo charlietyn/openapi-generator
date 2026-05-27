@@ -1001,6 +1001,15 @@ if (response.data.data && response.data.data.id) {
 ],
 ```
 
+### Convencion de token (Insomnia y Postman)
+
+Para mantener consistencia entre ambos formatos:
+
+- **Insomnia** usa `{{ _.token }}`.
+- **Postman** usa `{{token}}` (variable de environment).
+- Ambas variables representan el mismo valor JWT y deben mantenerse sincronizadas.
+- En rutas protegidas, Postman genera autenticacion `bearer` y header `Authorization: Bearer {{token}}` habilitado.
+
 ---
 
 ## Uso Programatico
