@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-05-27
+
+### Changed
+- operationId / summary now prefer the Laravel route name
+  (`channel.module.entity[.relation].action`), normalizing `update-multiple` →
+  `bulk_update`. The fallback "general" module no longer appears in endpoint
+  names and the channel prefix keeps ids unique across channels.
+
+### Fixed
+- Postman requests now declare per-request auth: `bearer` for BearerAuth
+  operations and `noauth` for public/API-key ones, so public endpoints stop
+  inheriting the collection token.
+- Postman and Insomnia request bodies honour documented per-field `example`
+  values instead of always emitting empty placeholders.
+
 ## [1.2.7] - 2026-05-27
 
 ### Fixed
