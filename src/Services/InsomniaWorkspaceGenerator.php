@@ -18,7 +18,6 @@ use Ronu\OpenApiGenerator\Helpers\PlaceholderHelper;
  */
 class InsomniaWorkspaceGenerator
 {
-    protected const GLOBAL_MODULE_INTERNAL = '__global__';
     protected string $workspaceId;
     protected array $spec;
     protected string $environment;
@@ -252,8 +251,13 @@ class InsomniaWorkspaceGenerator
 
         // Module folders
         $moduleSortKey = $baseSortKey;
-        foreach ($modules as $module => $entities) {
-            $moduleResources = $this->buildModuleFolder($module, $entities, $apiFolderId, $moduleSortKey);
+        foreach ($modules as $moduleData) {
+            $moduleResources = $this->buildModuleFolder(
+                $moduleData['display_name'] ?? 'general',
+                $moduleData['entities'] ?? [],
+                $apiFolderId,
+                $moduleSortKey
+            );
             $resources = array_merge($resources, $moduleResources);
             $moduleSortKey += 10;
         }
@@ -276,7 +280,7 @@ class InsomniaWorkspaceGenerator
             'parentId' => $parentId,
             'modified' => $timestamp,
             'created' => $timestamp,
-            'name' => ucfirst($this->normalizeModuleForDisplay($module)),
+            'name' => ucfirst($module),
             'metaSortKey' => $baseSortKey,
             'description' => '',
             'environment' => [],
@@ -296,9 +300,9 @@ class InsomniaWorkspaceGenerator
     }
 
     /**
-     * Build entity folder and its requests (optionally grouped by relation)
+     * Build entity folder and its requests
      */
-    protected function buildEntityFolder(string $entity, array $requestsByRelation, string $parentId, int $baseSortKey): array
+    protected function buildEntityFolder(string $entity, array $requests, string $parentId, int $baseSortKey): array
     {
         $resources = [];
         $timestamp = $this->getTimestamp();
@@ -318,40 +322,18 @@ class InsomniaWorkspaceGenerator
             '_type' => 'request_group',
         ];
 
-        // Requests (root) or relation sub-folders
+        // Requests
         $requestSortKey = $baseSortKey;
-        foreach ($requestsByRelation as $relation => $requests) {
-            $relationParentId = $entityFolderId;
-
-            if ($relation !== '__root__') {
-                $relationFolderId = 'fld_' . $this->generateId();
-                $resources[] = [
-                    '_id' => $relationFolderId,
-                    'parentId' => $entityFolderId,
-                    'modified' => $timestamp,
-                    'created' => $timestamp,
-                    'name' => ucfirst($relation),
-                    'metaSortKey' => $requestSortKey,
-                    'description' => '',
-                    'environment' => [],
-                    'environmentPropertyOrder' => null,
-                    '_type' => 'request_group',
-                ];
-                $relationParentId = $relationFolderId;
-                $requestSortKey += 10;
-            }
-
-            foreach ($requests as $request) {
-                $requestResource = $this->buildRequest(
-                    $request['path'],
-                    $request['method'],
-                    $request['operation'],
-                    $relationParentId,
-                    $requestSortKey
-                );
-                $resources[] = $requestResource;
-                $requestSortKey += 10;
-            }
+        foreach ($requests as $request) {
+            $requestResource = $this->buildRequest(
+                $request['path'],
+                $request['method'],
+                $request['operation'],
+                $entityFolderId,
+                $requestSortKey
+            );
+            $resources[] = $requestResource;
+            $requestSortKey += 10;
         }
 
         return $resources;
@@ -692,7 +674,7 @@ class InsomniaWorkspaceGenerator
     }
 
     /**
-     * Group paths by API Type → Module → Entity → Relation?
+     * Group paths by API Type → Module → Entity
      */
     protected function groupPaths(array $paths): array
     {
@@ -700,21 +682,23 @@ class InsomniaWorkspaceGenerator
 
         foreach ($paths as $path => $methods) {
             foreach ($methods as $method => $operation) {
-                // x-module is already the raw grouping key (internal fallback key
-                // or real module segment); do not coerce the public label back to
-                // the internal key, or a real "global" module would be merged into
-                // the fallback bucket.
-                $module = $operation['x-module']
-                    ?? config('openapi.global_module.internal_key', self::GLOBAL_MODULE_INTERNAL);
+                $moduleKey = $operation['x-module-key'] ?? ($operation['x-module'] ?? 'general');
+                $moduleDisplayName = $operation['x-module'] ?? $moduleKey;
                 $entity = $operation['x-entity'] ?? 'resource';
-                $relation = $operation['x-relation'] ?? null;
                 $apiType = $this->getApiTypeFromPath($path);
 
                 if (!empty($this->apiTypes) && !in_array($apiType, $this->apiTypes)) {
                     continue;
                 }
 
-                $grouped[$apiType][$module][$entity][$relation ?? '__root__'][] = [
+                if (!isset($grouped[$apiType][$moduleKey])) {
+                    $grouped[$apiType][$moduleKey] = [
+                        'display_name' => $moduleDisplayName,
+                        'entities' => [],
+                    ];
+                }
+
+                $grouped[$apiType][$moduleKey]['entities'][$entity][] = [
                     'path' => $path,
                     'method' => $method,
                     'operation' => $operation,
@@ -723,17 +707,6 @@ class InsomniaWorkspaceGenerator
         }
 
         return $grouped;
-    }
-
-    protected function normalizeModuleForDisplay(string $module): string
-    {
-        $internalKey = config('openapi.global_module.internal_key', self::GLOBAL_MODULE_INTERNAL);
-
-        if ($module === $internalKey || $module === self::GLOBAL_MODULE_INTERNAL) {
-            return config('openapi.global_module.label', 'global');
-        }
-
-        return $module;
     }
 
     /**

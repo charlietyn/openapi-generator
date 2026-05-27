@@ -22,7 +22,6 @@ use Illuminate\Support\Str;
  */
 class PostmanCollectionGenerator
 {
-    protected const GLOBAL_MODULE_INTERNAL = '__global__';
     protected string $environment;
     protected array $spec;
     protected string $collectionId;
@@ -109,7 +108,7 @@ class PostmanCollectionGenerator
     }
 
     /**
-     * Group paths by API Type → Module → Entity → Relation?
+     * Group paths by API Type → Module → Entity
      *
      * @param array $paths OpenAPI paths
      * @return array Grouped paths
@@ -120,15 +119,10 @@ class PostmanCollectionGenerator
 
         foreach ($paths as $path => $methods) {
             foreach ($methods as $method => $operation) {
-                // Extract metadata from operation. x-module is already the raw
-                // grouping key (internal fallback key or real module segment),
-                // so we must NOT coerce the public label back to the internal
-                // key here — doing so would merge a real "global" module into
-                // the fallback bucket.
-                $module = $operation['x-module']
-                    ?? config('openapi.global_module.internal_key', self::GLOBAL_MODULE_INTERNAL);
+                // Extract metadata from operation
+                $moduleKey = $operation['x-module-key'] ?? ($operation['x-module'] ?? 'general');
+                $moduleDisplayName = $operation['x-module'] ?? $moduleKey;
                 $entity = $operation['x-entity'] ?? 'resource';
-                $relation = $operation['x-relation'] ?? null;
                 $apiType = $this->getApiTypeFromOperation($operation, $path);
 
                 // Skip if not in filter
@@ -136,7 +130,14 @@ class PostmanCollectionGenerator
                     continue;
                 }
 
-                $grouped[$apiType][$module][$entity][$relation ?? '__root__'][] = [
+                if (!isset($grouped[$apiType][$moduleKey])) {
+                    $grouped[$apiType][$moduleKey] = [
+                        'display_name' => $moduleDisplayName,
+                        'entities' => [],
+                    ];
+                }
+
+                $grouped[$apiType][$moduleKey]['entities'][$entity][] = [
                     'path' => $path,
                     'method' => $method,
                     'operation' => $operation,
@@ -195,8 +196,11 @@ class PostmanCollectionGenerator
 
         $moduleItems = [];
 
-        foreach ($modules as $module => $entities) {
-            $moduleItems[] = $this->buildModuleFolder($module, $entities);
+        foreach ($modules as $moduleData) {
+            $moduleItems[] = $this->buildModuleFolder(
+                $moduleData['display_name'] ?? 'general',
+                $moduleData['entities'] ?? []
+            );
         }
 
         return [
@@ -222,20 +226,9 @@ class PostmanCollectionGenerator
         }
 
         return [
-            'name' => ucfirst($this->normalizeModuleForDisplay($module)),
+            'name' => ucfirst($module),
             'item' => $entityItems,
         ];
-    }
-
-    protected function normalizeModuleForDisplay(string $module): string
-    {
-        $internalKey = config('openapi.global_module.internal_key', self::GLOBAL_MODULE_INTERNAL);
-
-        if ($module === $internalKey || $module === self::GLOBAL_MODULE_INTERNAL) {
-            return config('openapi.global_module.label', 'global');
-        }
-
-        return $module;
     }
 
     /**
@@ -245,34 +238,21 @@ class PostmanCollectionGenerator
      * @param array $requests Requests data
      * @return array Folder structure
      */
-    protected function buildEntityFolder(string $entity, array $requestsByRelation): array
+    protected function buildEntityFolder(string $entity, array $requests): array
     {
-        $entityItems = [];
+        $requestItems = [];
 
-        foreach ($requestsByRelation as $relation => $requests) {
-            $requestItems = [];
-            foreach ($requests as $request) {
-                $requestItems[] = $this->buildRequest(
-                    $request['path'],
-                    $request['method'],
-                    $request['operation']
-                );
-            }
-
-            if ($relation === '__root__') {
-                $entityItems = array_merge($entityItems, $requestItems);
-                continue;
-            }
-
-            $entityItems[] = [
-                'name' => ucfirst($relation),
-                'item' => $requestItems,
-            ];
+        foreach ($requests as $request) {
+            $requestItems[] = $this->buildRequest(
+                $request['path'],
+                $request['method'],
+                $request['operation']
+            );
         }
 
         return [
             'name' => ucfirst($entity),
-            'item' => $entityItems,
+            'item' => $requestItems,
         ];
     }
 
@@ -292,7 +272,6 @@ class PostmanCollectionGenerator
             'name' => $name,
             'request' => [
                 'method' => strtoupper($method),
-                'auth' => $this->buildRequestAuth($operation),
                 'header' => $this->buildHeaders($operation, $method),
                 'body' => $this->buildRequestBody($operation, $method),
                 'url' => $this->buildUrl($path, $operation),
@@ -417,14 +396,13 @@ class PostmanCollectionGenerator
             ];
         }
 
-        // Authorization header only for bearer-secured routes. API-key-only
-        // endpoints are already documented via the X-API-Key header above and
-        // must not receive a spurious Bearer token.
-        if ($this->operationUsesBearer($operation)) {
+        // Authorization if requires security (disabled by default)
+        if (!empty($operation['security'])) {
             $headers[] = [
                 'key' => 'Authorization',
                 'value' => 'Bearer {{token}}',
                 'type' => 'text',
+                'disabled' => true,
             ];
         }
 
@@ -576,45 +554,6 @@ class PostmanCollectionGenerator
                 ],
             ],
         ];
-    }
-
-    /**
-     * Build request auth based on operation security.
-     */
-    protected function buildRequestAuth(array $operation): array
-    {
-        // Only bearer-secured operations override the collection auth with a
-        // bearer flow. API-key-only operations keep "noauth" at the request
-        // level so the X-API-Key header documents the real security scheme,
-        // instead of sending an unexpected Authorization: Bearer header.
-        if (!$this->operationUsesBearer($operation)) {
-            return ['type' => 'noauth'];
-        }
-
-        return [
-            'type' => 'bearer',
-            'bearer' => [
-                [
-                    'key' => 'token',
-                    'value' => '{{token}}',
-                    'type' => 'string',
-                ],
-            ],
-        ];
-    }
-
-    /**
-     * Determine whether an operation is secured with the Bearer scheme.
-     */
-    protected function operationUsesBearer(array $operation): bool
-    {
-        foreach ($operation['security'] ?? [] as $requirement) {
-            if (is_array($requirement) && array_key_exists('BearerAuth', $requirement)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
