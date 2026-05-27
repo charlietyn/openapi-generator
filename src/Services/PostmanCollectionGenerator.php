@@ -120,7 +120,8 @@ class PostmanCollectionGenerator
         foreach ($paths as $path => $methods) {
             foreach ($methods as $method => $operation) {
                 // Extract metadata from operation
-                $module = $operation['x-module-key'] ?? ($operation['x-module'] ?? 'general');
+                $moduleKey = $operation['x-module-key'] ?? ($operation['x-module'] ?? 'general');
+                $moduleDisplayName = $operation['x-module'] ?? $moduleKey;
                 $entity = $operation['x-entity'] ?? 'resource';
                 $apiType = $this->getApiTypeFromOperation($operation, $path);
 
@@ -129,7 +130,14 @@ class PostmanCollectionGenerator
                     continue;
                 }
 
-                $grouped[$apiType][$module][$entity][] = [
+                if (!isset($grouped[$apiType][$moduleKey])) {
+                    $grouped[$apiType][$moduleKey] = [
+                        'display_name' => $moduleDisplayName,
+                        'entities' => [],
+                    ];
+                }
+
+                $grouped[$apiType][$moduleKey]['entities'][$entity][] = [
                     'path' => $path,
                     'method' => $method,
                     'operation' => $operation,
@@ -188,8 +196,11 @@ class PostmanCollectionGenerator
 
         $moduleItems = [];
 
-        foreach ($modules as $module => $entities) {
-            $moduleItems[] = $this->buildModuleFolder($module, $entities);
+        foreach ($modules as $moduleData) {
+            $moduleItems[] = $this->buildModuleFolder(
+                $moduleData['display_name'] ?? 'general',
+                $moduleData['entities'] ?? []
+            );
         }
 
         return [

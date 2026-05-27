@@ -251,8 +251,13 @@ class InsomniaWorkspaceGenerator
 
         // Module folders
         $moduleSortKey = $baseSortKey;
-        foreach ($modules as $module => $entities) {
-            $moduleResources = $this->buildModuleFolder($module, $entities, $apiFolderId, $moduleSortKey);
+        foreach ($modules as $moduleData) {
+            $moduleResources = $this->buildModuleFolder(
+                $moduleData['display_name'] ?? 'general',
+                $moduleData['entities'] ?? [],
+                $apiFolderId,
+                $moduleSortKey
+            );
             $resources = array_merge($resources, $moduleResources);
             $moduleSortKey += 10;
         }
@@ -677,7 +682,8 @@ class InsomniaWorkspaceGenerator
 
         foreach ($paths as $path => $methods) {
             foreach ($methods as $method => $operation) {
-                $module = $operation['x-module-key'] ?? ($operation['x-module'] ?? 'general');
+                $moduleKey = $operation['x-module-key'] ?? ($operation['x-module'] ?? 'general');
+                $moduleDisplayName = $operation['x-module'] ?? $moduleKey;
                 $entity = $operation['x-entity'] ?? 'resource';
                 $apiType = $this->getApiTypeFromPath($path);
 
@@ -685,7 +691,14 @@ class InsomniaWorkspaceGenerator
                     continue;
                 }
 
-                $grouped[$apiType][$module][$entity][] = [
+                if (!isset($grouped[$apiType][$moduleKey])) {
+                    $grouped[$apiType][$moduleKey] = [
+                        'display_name' => $moduleDisplayName,
+                        'entities' => [],
+                    ];
+                }
+
+                $grouped[$apiType][$moduleKey]['entities'][$entity][] = [
                     'path' => $path,
                     'method' => $method,
                     'operation' => $operation,
