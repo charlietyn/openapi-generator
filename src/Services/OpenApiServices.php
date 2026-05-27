@@ -353,12 +353,24 @@ class OpenApiServices
         $nonParams = array_filter($parts, fn($p) => !Str::startsWith($p, '{'));
         $nonParams = array_values($nonParams);
 
-        if (count($nonParams) === 2 && $this->isNwidartModule($nonParams[1])) {
+        if (count($nonParams) !== 2) {
+            return false;
+        }
+
+        $moduleSegment = $nonParams[1];
+        $isModuleRootByStructure = Str::startsWith($moduleSegment, 'mod_');
+        $isModuleRootByDirectory = $this->isNwidartModule($moduleSegment);
+
+        if ($isModuleRootByStructure || $isModuleRootByDirectory) {
             Log::channel('openapi')->debug('Module root route detected', [
                 'uri' => $uri,
                 'segments' => $nonParams,
-                'module' => $nonParams[1],
-                'reason' => 'Only prefix + module, no entity',
+                'module' => $moduleSegment,
+                'detected_by' => [
+                    'structure' => $isModuleRootByStructure,
+                    'directory' => $isModuleRootByDirectory,
+                ],
+                'reason' => 'Only prefix + module, no entity segment',
             ]);
             return true;
         }
@@ -472,8 +484,36 @@ class OpenApiServices
                 continue;
             }
 
+            $exclusion = $this->shouldExcludeBeforeProcess($route);
+            if ($exclusion !== null) {
+                Log::channel('openapi')->info('Skipping route before processRoute', [
+                    'uri' => '/' . $route->uri(),
+                    'reason' => $exclusion['reason'],
+                    'strict_mode' => $exclusion['strict_mode'],
+                ]);
+                continue;
+            }
+
             $this->processRoute($route);
         }
+    }
+
+    /**
+     * Validate exclusion rules that must be applied before processRoute.
+     */
+    protected function shouldExcludeBeforeProcess($route): ?array
+    {
+        $uri = '/' . $route->uri();
+        $strictMode = (bool) config('openapi.exclude_prefix_module_roots', true);
+
+        if ($strictMode && $this->isModuleRootRoute($uri)) {
+            return [
+                'reason' => 'module-root-route',
+                'strict_mode' => true,
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -757,14 +797,6 @@ class OpenApiServices
         $methods = $route->methods();
         $uri = '/' . $route->uri();
         $action = $route->getAction();
-
-        if ($this->isModuleRootRoute($uri)) {
-            Log::channel('openapi')->info('Skipping module root route', [
-                'uri' => $uri,
-                'reason' => 'No entity specified',
-            ]);
-            return;
-        }
 
         $methods = array_filter($methods, fn($m) => !in_array($m, ['HEAD', 'OPTIONS']));
 
