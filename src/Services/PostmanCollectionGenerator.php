@@ -123,6 +123,7 @@ class PostmanCollectionGenerator
                 $moduleKey = $operation['x-module-key'] ?? ($operation['x-module'] ?? 'general');
                 $moduleDisplayName = $operation['x-module'] ?? $moduleKey;
                 $entity = $operation['x-entity'] ?? 'resource';
+                $relation = $operation['x-relation'] ?? null;
                 $apiType = $this->getApiTypeFromOperation($operation, $path);
 
                 // Skip if not in filter
@@ -137,7 +138,8 @@ class PostmanCollectionGenerator
                     ];
                 }
 
-                $grouped[$apiType][$moduleKey]['entities'][$entity][] = [
+                // Nest relation sub-resources under their own folder.
+                $grouped[$apiType][$moduleKey]['entities'][$entity][$relation ?? '__root__'][] = [
                     'path' => $path,
                     'method' => $method,
                     'operation' => $operation,
@@ -238,21 +240,36 @@ class PostmanCollectionGenerator
      * @param array $requests Requests data
      * @return array Folder structure
      */
-    protected function buildEntityFolder(string $entity, array $requests): array
+    protected function buildEntityFolder(string $entity, array $requestsByRelation): array
     {
-        $requestItems = [];
+        $entityItems = [];
 
-        foreach ($requests as $request) {
-            $requestItems[] = $this->buildRequest(
-                $request['path'],
-                $request['method'],
-                $request['operation']
-            );
+        foreach ($requestsByRelation as $relation => $requests) {
+            $requestItems = [];
+            foreach ($requests as $request) {
+                $requestItems[] = $this->buildRequest(
+                    $request['path'],
+                    $request['method'],
+                    $request['operation']
+                );
+            }
+
+            // Root-level requests stay directly under the entity folder;
+            // relation sub-resources get their own nested folder.
+            if ($relation === '__root__') {
+                $entityItems = array_merge($entityItems, $requestItems);
+                continue;
+            }
+
+            $entityItems[] = [
+                'name' => ucfirst($relation),
+                'item' => $requestItems,
+            ];
         }
 
         return [
             'name' => ucfirst($entity),
-            'item' => $requestItems,
+            'item' => $entityItems,
         ];
     }
 

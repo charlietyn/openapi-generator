@@ -187,7 +187,12 @@ return [
     | Admin routes matching these patterns are treated as public and will not
     | receive implicit BearerAuth when middleware-based security is absent.
     |
+    | force_admin_bearer_auth: when true, non-public admin routes that match no
+    | entry in middleware_security_map still get an implicit BearerAuth scheme
+    | (useful when admin auth is handled by custom channel middleware).
+    |
     */
+    'force_admin_bearer_auth' => true,
     'admin_public_patterns' => [
         'admin/login',
         'admin/register',
