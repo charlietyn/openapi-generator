@@ -120,9 +120,13 @@ class PostmanCollectionGenerator
 
         foreach ($paths as $path => $methods) {
             foreach ($methods as $method => $operation) {
-                // Extract metadata from operation
-                $module = $operation['x-module'] ?? config('openapi.global_module.label', 'global');
-                $module = $this->normalizeModuleForGrouping($module);
+                // Extract metadata from operation. x-module is already the raw
+                // grouping key (internal fallback key or real module segment),
+                // so we must NOT coerce the public label back to the internal
+                // key here — doing so would merge a real "global" module into
+                // the fallback bucket.
+                $module = $operation['x-module']
+                    ?? config('openapi.global_module.internal_key', self::GLOBAL_MODULE_INTERNAL);
                 $entity = $operation['x-entity'] ?? 'resource';
                 $relation = $operation['x-relation'] ?? null;
                 $apiType = $this->getApiTypeFromOperation($operation, $path);
@@ -223,18 +227,11 @@ class PostmanCollectionGenerator
         ];
     }
 
-    protected function normalizeModuleForGrouping(string $module): string
-    {
-        if ($module === config('openapi.global_module.label', 'global')) {
-            return self::GLOBAL_MODULE_INTERNAL;
-        }
-
-        return $module;
-    }
-
     protected function normalizeModuleForDisplay(string $module): string
     {
-        if ($module === self::GLOBAL_MODULE_INTERNAL) {
+        $internalKey = config('openapi.global_module.internal_key', self::GLOBAL_MODULE_INTERNAL);
+
+        if ($module === $internalKey || $module === self::GLOBAL_MODULE_INTERNAL) {
             return config('openapi.global_module.label', 'global');
         }
 
@@ -420,8 +417,10 @@ class PostmanCollectionGenerator
             ];
         }
 
-        // Authorization header when route requires security
-        if (!empty($operation['security'])) {
+        // Authorization header only for bearer-secured routes. API-key-only
+        // endpoints are already documented via the X-API-Key header above and
+        // must not receive a spurious Bearer token.
+        if ($this->operationUsesBearer($operation)) {
             $headers[] = [
                 'key' => 'Authorization',
                 'value' => 'Bearer {{token}}',
@@ -584,7 +583,11 @@ class PostmanCollectionGenerator
      */
     protected function buildRequestAuth(array $operation): array
     {
-        if (empty($operation['security'])) {
+        // Only bearer-secured operations override the collection auth with a
+        // bearer flow. API-key-only operations keep "noauth" at the request
+        // level so the X-API-Key header documents the real security scheme,
+        // instead of sending an unexpected Authorization: Bearer header.
+        if (!$this->operationUsesBearer($operation)) {
             return ['type' => 'noauth'];
         }
 
@@ -598,6 +601,20 @@ class PostmanCollectionGenerator
                 ],
             ],
         ];
+    }
+
+    /**
+     * Determine whether an operation is secured with the Bearer scheme.
+     */
+    protected function operationUsesBearer(array $operation): bool
+    {
+        foreach ($operation['security'] ?? [] as $requirement) {
+            if (is_array($requirement) && array_key_exists('BearerAuth', $requirement)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

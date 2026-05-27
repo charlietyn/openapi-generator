@@ -700,8 +700,12 @@ class InsomniaWorkspaceGenerator
 
         foreach ($paths as $path => $methods) {
             foreach ($methods as $method => $operation) {
-                $module = $operation['x-module'] ?? config('openapi.global_module.label', 'global');
-                $module = $this->normalizeModuleForGrouping($module);
+                // x-module is already the raw grouping key (internal fallback key
+                // or real module segment); do not coerce the public label back to
+                // the internal key, or a real "global" module would be merged into
+                // the fallback bucket.
+                $module = $operation['x-module']
+                    ?? config('openapi.global_module.internal_key', self::GLOBAL_MODULE_INTERNAL);
                 $entity = $operation['x-entity'] ?? 'resource';
                 $relation = $operation['x-relation'] ?? null;
                 $apiType = $this->getApiTypeFromPath($path);
@@ -721,18 +725,11 @@ class InsomniaWorkspaceGenerator
         return $grouped;
     }
 
-    protected function normalizeModuleForGrouping(string $module): string
-    {
-        if ($module === config('openapi.global_module.label', 'global')) {
-            return self::GLOBAL_MODULE_INTERNAL;
-        }
-
-        return $module;
-    }
-
     protected function normalizeModuleForDisplay(string $module): string
     {
-        if ($module === self::GLOBAL_MODULE_INTERNAL) {
+        $internalKey = config('openapi.global_module.internal_key', self::GLOBAL_MODULE_INTERNAL);
+
+        if ($module === $internalKey || $module === self::GLOBAL_MODULE_INTERNAL) {
             return config('openapi.global_module.label', 'global');
         }
 

@@ -227,16 +227,44 @@ return [
     ],
 
     /*
-+    |--------------------------------------------------------------------------
-+    | Module Exclusions
-+    |--------------------------------------------------------------------------
-+    |
-+    | Exclude modules or their routes from documentation (Nwidart Modules)
-+    |
-+    */
-    +
-    +    'exclude_modules' => [],
-    +    'exclude_module_routes' => [],
+    |--------------------------------------------------------------------------
+    | Relation Detection
+    |--------------------------------------------------------------------------
+    |
+    | Controls how trailing URI segments are grouped as relation sub-folders in
+    | the Postman/Insomnia exports. Segments listed under "action_segments" are
+    | treated as custom (non-CRUD) actions and are NEVER tagged as relations,
+    | so endpoints like POST /api-apps/{id}/rotate or POST /users/validate stay
+    | under their entity instead of creating fake "Rotate"/"Validate" folders.
+    | Endpoints documented in config/openapi-docs.php (custom_endpoints) are
+    | also excluded automatically.
+    |
+    */
+
+    'relation_detection' => [
+        'enabled' => true,
+        'action_segments' => [
+            'rotate',
+            'validate',
+            'restore',
+            'import',
+            'export',
+            'cancel',
+            'publish',
+            'unpublish',
+            'archive',
+            'duplicate',
+            'sync',
+            'refresh',
+            'activate',
+            'deactivate',
+            'approve',
+            'reject',
+            'bulk-update',
+            'bulk-delete',
+            'bulk-create',
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------

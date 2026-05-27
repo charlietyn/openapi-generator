@@ -55,6 +55,12 @@ class OpenApiGeneratorServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register the documentation HTTP routes (openapi.spec/postman/insomnia)
+        // when enabled. The route file reads the prefix/middleware from config.
+        if (config('openapi.routes.enabled', true)) {
+            $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
+        }
+
         // Publish configuration
         if ($this->app->runningInConsole()) {
             $this->publishes([

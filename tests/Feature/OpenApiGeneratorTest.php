@@ -105,14 +105,16 @@ class OpenApiGeneratorTest extends TestCase
     {
         $this->app['config']->set('openapi.cache.enabled', false);
 
-        Route::post('/api/auth/login', static function () {
+        // Use an enabled API prefix (admin) so OpenApiServices::isApiRoute()
+        // does not filter the route out before the assertions run.
+        Route::post('/admin/auth/login', static function () {
             return response()->json(['ok' => true]);
         })->name('auth.login');
 
         $service = new OpenApiServices();
 
         $openapi = $service->generate(false, null, null, 'openapi');
-        $operation = $openapi['paths']['/api/auth/login']['post'] ?? null;
+        $operation = $openapi['paths']['/admin/auth/login']['post'] ?? null;
 
         $this->assertNotNull($operation);
         $this->assertArrayHasKey('requestBody', $operation);
@@ -124,9 +126,11 @@ class OpenApiGeneratorTest extends TestCase
 
         $postman = $service->generate(false, null, null, 'postman');
         $postmanPayload = json_encode($postman, JSON_THROW_ON_ERROR);
-        $this->assertStringContainsString('"email": ""', $postmanPayload);
-        $this->assertStringContainsString('"password": ""', $postmanPayload);
-        $this->assertStringContainsString('"remember": false', $postmanPayload);
+        // The Postman body is pretty-printed JSON embedded as a string, so the
+        // surrounding json_encode escapes its quotes (\"email\": \"\").
+        $this->assertStringContainsString('\"email\": \"\"', $postmanPayload);
+        $this->assertStringContainsString('\"password\": \"\"', $postmanPayload);
+        $this->assertStringContainsString('\"remember\": false', $postmanPayload);
 
         $insomnia = $service->generate(false, null, null, 'insomnia');
         $insomniaPayload = json_encode($insomnia, JSON_THROW_ON_ERROR);

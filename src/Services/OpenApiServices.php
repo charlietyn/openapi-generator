@@ -23,6 +23,7 @@ use Ronu\OpenApiGenerator\Support\ActionAliasResolver;
  */
 class OpenApiServices
 {
+    public const GLOBAL_MODULE_INTERNAL = '__global__';
     protected array $spec;
     protected string $title;
     protected array $paths = [];
@@ -351,15 +352,35 @@ class OpenApiServices
     protected function isModuleRootRoute(string $uri): bool
     {
         $parts = explode('/', trim($uri, '/'));
-        $nonParams = array_filter($parts, fn($p) => !Str::startsWith($p, '{'));
-        $nonParams = array_values($nonParams);
 
-        if (count($nonParams) === 2 && $this->isNwidartModule($nonParams[1])) {
+        // A module root is *exactly* prefix + module with no further segments.
+        // Counting only non-parameter segments would also match instance routes
+        // such as /admin/mod_clients/{client}, which are real show/update/delete
+        // endpoints and must NOT be dropped.
+        if (count($parts) !== 2) {
+            return false;
+        }
+
+        $moduleSegment = $parts[1];
+
+        // The module segment itself must be a static segment, not a parameter.
+        if (Str::startsWith($moduleSegment, '{')) {
+            return false;
+        }
+
+        $isModuleRootByStructure = Str::startsWith($moduleSegment, 'mod_');
+        $isModuleRootByDirectory = $this->isNwidartModule($moduleSegment);
+
+        if ($isModuleRootByStructure || $isModuleRootByDirectory) {
             Log::channel('openapi')->debug('Module root route detected', [
                 'uri' => $uri,
-                'segments' => $nonParams,
-                'module' => $nonParams[1],
-                'reason' => 'Only prefix + module, no entity',
+                'segments' => $parts,
+                'module' => $moduleSegment,
+                'detected_by' => [
+                    'structure' => $isModuleRootByStructure,
+                    'directory' => $isModuleRootByDirectory,
+                ],
+                'reason' => 'Only prefix + module, no entity segment',
             ]);
             return true;
         }
@@ -473,8 +494,36 @@ class OpenApiServices
                 continue;
             }
 
+            $exclusion = $this->shouldExcludeBeforeProcess($route);
+            if ($exclusion !== null) {
+                Log::channel('openapi')->info('Skipping route before processRoute', [
+                    'uri' => '/' . $route->uri(),
+                    'reason' => $exclusion['reason'],
+                    'strict_mode' => $exclusion['strict_mode'],
+                ]);
+                continue;
+            }
+
             $this->processRoute($route);
         }
+    }
+
+    /**
+     * Validate exclusion rules that must be applied before processRoute.
+     */
+    protected function shouldExcludeBeforeProcess($route): ?array
+    {
+        $uri = '/' . $route->uri();
+        $strictMode = (bool) config('openapi.exclude_prefix_module_roots', true);
+
+        if ($strictMode && $this->isModuleRootRoute($uri)) {
+            return [
+                'reason' => 'module-root-route',
+                'strict_mode' => true,
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -625,7 +674,7 @@ class OpenApiServices
         else if ($secondSegment && $this->isGlobalEntityModel($secondSegment)) {
             $structure = [
                 'prefix' => $prefix,
-                'module' => 'general',
+                'module' => self::GLOBAL_MODULE_INTERNAL,
                 'entity' => $secondSegment,
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -633,13 +682,13 @@ class OpenApiServices
             Log::channel('openapi')->info('Global entity detected (not a module)', [
                 'uri' => $uri,
                 'entity' => $secondSegment,
-                'module' => 'general',
+                'module' => self::GLOBAL_MODULE_INTERNAL,
             ]);
         } // PRIORITY 3: CUSTOM URIs (auth endpoints)
         else if ($this->isAuthEndpoint($uri, $lastPart)) {
             $structure = [
                 'prefix' => $prefix,
-                'module' => 'general',
+                'module' => self::GLOBAL_MODULE_INTERNAL,
                 'entity' => 'auth',
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -647,7 +696,7 @@ class OpenApiServices
         else {
             $structure = [
                 'prefix' => $prefix,
-                'module' => 'general',
+                'module' => self::GLOBAL_MODULE_INTERNAL,
                 'entity' => $secondSegment ?? 'resource',
                 'params' => array_slice($parts, $segmentCount),
             ];
@@ -758,14 +807,6 @@ class OpenApiServices
         $methods = $route->methods();
         $uri = '/' . $route->uri();
         $action = $route->getAction();
-
-        if ($this->isModuleRootRoute($uri)) {
-            Log::channel('openapi')->info('Skipping module root route', [
-                'uri' => $uri,
-                'reason' => 'No entity specified',
-            ]);
-            return;
-        }
 
         $methods = array_filter($methods, fn($m) => !in_array($m, ['HEAD', 'OPTIONS']));
 
@@ -893,7 +934,8 @@ class OpenApiServices
 
         $operationId = $requestName['technical_name'];
 
-        $tag = $this->getOrCreateTag($module, $prefix);
+        $publicModule = $this->normalizeModuleForPublicOutput($module);
+        $tag = $this->getOrCreateTag($publicModule, $prefix);
 
         $operation = [
             'operationId' => $operationId,
@@ -902,10 +944,18 @@ class OpenApiServices
             'tags' => [$tag],
             'parameters' => $this->extractParameters($route),
             'responses' => $this->buildResponses($method, $finalAction),
+            // Emit the raw grouping key (the internal fallback key for global
+            // routes, the real segment for actual modules) so the collection
+            // generators never merge a real "global" module with the fallback.
             'x-module' => $module,
             'x-entity' => $entity,
             'x-action-type' => $finalAction,
         ];
+
+        $relation = $this->extractRelationFromUri($uri, $structure, $finalAction);
+        if ($relation !== null) {
+            $operation['x-relation'] = $relation;
+        }
 
         $security = $this->extractSecurity($route);
         if (!empty($security)) {
@@ -924,6 +974,116 @@ class OpenApiServices
         }
 
         return $operation;
+    }
+
+    /**
+     * Extract relation from URI patterns like /{entity}/{id}/{relation} and variants.
+     *
+     * Custom action suffixes (e.g. /api-apps/{id}/rotate, /users/validate,
+     * /users/{id}/restore) must NOT be treated as relations: they are explicit
+     * non-CRUD actions, and tagging them would push the request into a fake
+     * relation folder (Rotate, Validate, ...) in the Postman/Insomnia exports.
+     */
+    protected function extractRelationFromUri(string $uri, array $structure, ?string $finalAction = null): ?string
+    {
+        if (!config('openapi.relation_detection.enabled', true)) {
+            return null;
+        }
+
+        $segments = explode('/', trim($uri, '/'));
+        $entity = strtolower($structure['entity'] ?? '');
+
+        if ($entity === '') {
+            return null;
+        }
+
+        $entityIndex = null;
+        foreach ($segments as $index => $segment) {
+            if (strtolower($segment) === $entity) {
+                $entityIndex = $index;
+                break;
+            }
+        }
+
+        if ($entityIndex === null) {
+            return null;
+        }
+
+        $tail = array_slice($segments, $entityIndex + 1);
+        if (empty($tail)) {
+            return null;
+        }
+
+        // Skip entity identifier segment when present: /{entity}/{id}/...
+        if (isset($tail[0]) && Str::startsWith($tail[0], '{')) {
+            $tail = array_slice($tail, 1);
+        }
+
+        foreach ($tail as $segment) {
+            if (Str::startsWith($segment, '{') || $segment === '') {
+                continue;
+            }
+
+            $candidate = Str::kebab($segment);
+
+            // A custom action segment is not a relation.
+            if ($this->isCustomActionSegment($candidate, $structure['entity'] ?? '', $finalAction)) {
+                Log::channel('openapi')->debug('Skipping relation tag for custom action segment', [
+                    'uri' => $uri,
+                    'segment' => $segment,
+                    'entity' => $structure['entity'] ?? '',
+                    'final_action' => $finalAction,
+                ]);
+
+                return null;
+            }
+
+            return $candidate;
+        }
+
+        return null;
+    }
+
+    /**
+     * Decide whether a trailing URI segment is a documented/custom action
+     * rather than a model relation.
+     *
+     * Sources of truth:
+     *  - config('openapi-docs.custom_endpoints') keyed by "entity.action"
+     *  - config('openapi.relation_detection.action_segments') verb list
+     *  - the action already detected for this operation ($finalAction)
+     */
+    protected function isCustomActionSegment(string $candidate, string $entity, ?string $finalAction): bool
+    {
+        $normalizedCandidate = Str::kebab($candidate);
+
+        // 1. Explicitly documented custom endpoint: "entity.action".
+        $customEndpoints = config('openapi-docs.custom_endpoints', []);
+        $entityKey = Str::kebab($entity);
+        foreach (["{$entityKey}.{$normalizedCandidate}", "{$entity}.{$normalizedCandidate}"] as $docKey) {
+            if (isset($customEndpoints[$docKey])) {
+                return true;
+            }
+        }
+
+        // 2. Known custom action verbs (configurable). Also covers the action
+        //    already detected for this operation ($finalAction), since for a
+        //    custom-action route that value equals the trailing segment.
+        $actionSegments = config('openapi.relation_detection.action_segments', []);
+        $normalizedSegments = array_map(static fn($a) => Str::kebab((string) $a), $actionSegments);
+
+        $needles = [$normalizedCandidate];
+        if ($finalAction !== null) {
+            $needles[] = Str::kebab($finalAction);
+        }
+
+        foreach ($needles as $needle) {
+            if (in_array($needle, $normalizedSegments, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1099,7 +1259,7 @@ class OpenApiServices
             $parts = explode('.', $routeName);
             $routeAction = end($parts);
 
-            // Map Laravel Resource actions to our convention
+            // Map Laravel Resource actions to our convention (destroy → delete, etc.)
             $mappedAction = ActionAliasResolver::normalize($routeAction);
 
             Log::channel('openapi')->debug('Action detected from route name', [
@@ -1126,9 +1286,28 @@ class OpenApiServices
      */
     protected function buildTechnicalName(string $module, string $entity, string $action): string
     {
-        // For now, always include module (even "general")
-        // This ensures consistency
-        return implode('.', [$module, $entity, $action]);
+        if (
+            $this->isGlobalModuleInternal($module)
+            && config('openapi.global_module.omit_from_technical_name', true)
+        ) {
+            return implode('.', [$entity, $action]);
+        }
+
+        return implode('.', [$this->normalizeModuleForPublicOutput($module), $entity, $action]);
+    }
+
+    protected function isGlobalModuleInternal(string $module): bool
+    {
+        return $module === self::GLOBAL_MODULE_INTERNAL;
+    }
+
+    protected function normalizeModuleForPublicOutput(string $module): string
+    {
+        if (!$this->isGlobalModuleInternal($module)) {
+            return $module;
+        }
+
+        return config('openapi.global_module.label', 'global');
     }
 
     /**
@@ -1315,7 +1494,35 @@ class OpenApiServices
             }
         }
 
+        if (empty($security) && $this->shouldForceAdminBearerAuth($route)) {
+            $security[] = ['BearerAuth' => []];
+        }
+
         return $security;
+    }
+
+    protected function shouldForceAdminBearerAuth($route): bool
+    {
+        $uri = trim($route->uri(), '/');
+        $adminPrefix = trim((string) config('openapi.api_types.admin.prefix', 'admin'), '/');
+
+        if ($adminPrefix === '') {
+            return false;
+        }
+
+        if (!Str::is($adminPrefix, $uri) && !Str::is($adminPrefix . '/*', $uri)) {
+            return false;
+        }
+
+        $publicPatterns = config('openapi.admin_public_patterns', []);
+        foreach ($publicPatterns as $pattern) {
+            $normalizedPattern = trim((string) $pattern, '/');
+            if ($normalizedPattern !== '' && Str::is($normalizedPattern, $uri)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -1336,7 +1543,7 @@ class OpenApiServices
         $responses['403'] = $responseExamples['403'];
 
         // Handle show, update, delete and bulk operations that may have 404
-        if (Str::contains($action, ['show', 'update', 'delete', 'bulk_update', 'bulk-update', 'update_multiple', 'update-multiple', 'bulk_delete', 'bulk-delete'])) {
+        if (Str::contains($action, ['show', 'update', 'delete', 'destroy', 'bulk_update', 'bulk-update', 'update_multiple', 'update-multiple', 'bulk_delete', 'bulk-delete'])) {
             $responses['404'] = $responseExamples['404'];
         }
 
@@ -1427,6 +1634,25 @@ class OpenApiServices
         }
 
         // ==========================================
+        // TEMPLATE REQUEST BODY
+        // ==========================================
+        // When no FormRequest/Model example is available (e.g. auth.login),
+        // honour the requestBody declared in the resolved JSON template before
+        // falling back to a generic { "data": {} } payload.
+
+        $templateRequestBody = $this->extractRequestBodyFromTemplate($documentation);
+        if ($templateRequestBody !== null) {
+            Log::channel('openapi')->info('[buildRequestBody] ✅ Using template requestBody', [
+                'action' => $action,
+                'fields' => array_keys(
+                    $templateRequestBody['content']['application/json']['schema']['properties'] ?? []
+                ),
+            ]);
+
+            return $templateRequestBody;
+        }
+
+        // ==========================================
         // GENERIC FALLBACK
         // ==========================================
 
@@ -1472,6 +1698,34 @@ class OpenApiServices
                 ],
             ],
         ];
+    }
+
+    /**
+     * Extract a usable JSON requestBody from the resolved template.
+     *
+     * Custom templates (e.g. resources/templates/custom/auth.login.json) declare
+     * their own requestBody. When the metadata layer has no FormRequest/Model
+     * example, this lets that declared body drive the operation instead of the
+     * generic fallback.
+     *
+     * @param array $documentation Documentation payload from the resolver
+     * @return array|null OpenAPI requestBody object or null when unavailable
+     */
+    protected function extractRequestBodyFromTemplate(array $documentation): ?array
+    {
+        $requestBody = $documentation['full_spec']['requestBody'] ?? null;
+
+        if (!is_array($requestBody)) {
+            return null;
+        }
+
+        $schema = $requestBody['content']['application/json']['schema'] ?? null;
+
+        if (!is_array($schema) || empty($schema['properties'])) {
+            return null;
+        }
+
+        return $requestBody;
     }
 
     /**

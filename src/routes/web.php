@@ -31,8 +31,11 @@ Route::prefix($prefix)
             ->where('format', 'json|yaml|yml')
             ->name('spec');
 
-        // Legacy route name for backward compatibility
-        Route::get('openapi.{format}', [OpenApiController::class, 'generate'])
+        // Legacy route name for backward compatibility. It MUST use a distinct
+        // URI: a second route on the same method+URI overwrites the primary one
+        // in the name lookup, which would drop the 'openapi.spec' name that the
+        // controller and consumers rely on.
+        Route::get('generate/openapi.{format}', [OpenApiController::class, 'generate'])
             ->where('format', 'json|yaml|yml')
             ->name('generate');
 
